@@ -84,6 +84,11 @@ button:active{transform:scale(.98)}
 .bar>i{display:block;height:100%;background:var(--blue)}
 .fig{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
 .fig b{color:var(--ink)}
+.due{font-size:12px;color:var(--muted);margin-top:6px} .due b{color:var(--ink)} .due.late{color:var(--alert)} .due.late b{color:var(--alert)}
+label.chk{flex-direction:row;align-items:center;gap:8px;grid-column:1/-1} label.chk input{width:auto}
+.pf{display:grid;gap:10px} .pf label{display:grid;gap:4px;font-size:13px}
+.pf label.chk{display:flex;flex-direction:row;align-items:center;gap:8px}
+input[type=checkbox]{width:18px!important;height:18px;padding:0;margin:0;flex:none;accent-color:var(--blue)}
 .acts{display:flex;gap:7px;flex-wrap:wrap}
 .acts button{padding:7px 11px;font-size:12px}
 .lockb{background:var(--alert);color:#fff} .unlockb{background:var(--ok);color:#fff} .relb{background:var(--blue);color:#fff}
@@ -161,6 +166,8 @@ button:active{transform:scale(.98)}
     <div class="grid">
       <label>Default shop phone (shown on locked phones)<input id="setPhone" placeholder="+260…"></label>
       <label>Offline days before a phone self-locks<input id="setGrace" type="number" min="1" max="60"></label>
+      <label>Days late before auto-lock (0 = lock on the due day)<input id="setLate" type="number" min="0" max="30"></label>
+      <label>Reset protection: shop Google account ID (numbers only)<input id="setFrp" inputmode="numeric" placeholder="e.g. 112233445566778899000"></label>
       <label>App file for QR setup — the .apk (or the .zip from GitHub)<input id="apkFile" type="file" accept=".apk,.zip,application/zip"></label>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><button class="ghost" id="saveSet" type="button">Save settings</button><button class="primary" id="upApk" type="button">Upload app file</button></div>
     </div>
@@ -186,6 +193,9 @@ button:active{transform:scale(.98)}
           <label>Offline days before self-lock<input name="graceDays" type="number" min="1" max="60" value="7"/></label>
           <label>Total price (K)<input name="price" type="number" min="0" value="3000"/></label>
           <label>Deposit paid (K)<input name="paid" type="number" min="0" value="500"/></label>
+          <label>Installment (K)<input name="planAmount" type="number" min="0" value="250"/></label>
+          <label>Pay every<select name="planEveryDays"><option value="7">Week</option><option value="14">2 weeks</option><option value="30" selected>Month (30 days)</option><option value="0">No fixed plan</option></select></label>
+          <label class="chk"><input type="checkbox" name="autoLock" checked/> Lock automatically when a payment is late</label>
           <button class="primary" type="submit">Add &amp; show setup QR</button>
         </form>
       </div>

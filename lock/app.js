@@ -112,6 +112,7 @@ async function refresh() {
 $('addForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const body = Object.fromEntries(new FormData(e.target).entries());
+  body.autoLock = e.target.autoLock.checked;
   try {
     const j = await api('POST', '/api/devices', body);
     e.target.reset();
@@ -133,8 +134,11 @@ $('filters').addEventListener('click', (e) => {
 /* ---------- settings + app upload ---------- */
 $('saveSet').onclick = async () => {
   try {
-    await api('POST', '/api/settings', { shopPhone: $('setPhone').value, graceDays: Number($('setGrace').value) });
+    const frp = $('setFrp').value.replace(/\s+/g, '');
+    if (frp && !/^[0-9]{6,30}$/.test(frp)) { banner('The Google account ID is a long number, not the email address. See the guide.'); return; }
+    await api('POST', '/api/settings', { shopPhone: $('setPhone').value, graceDays: Number($('setGrace').value), lateGraceDays: Number($('setLate').value), frpAccount: frp });
     me.shopPhone = $('setPhone').value; me.graceDays = Number($('setGrace').value);
+    me.lateGraceDays = Number($('setLate').value); me.frpAccount = frp;
     banner('Settings saved.', true);
   } catch (e) { banner(e.message); }
 };
@@ -234,10 +238,12 @@ function render() {
         <span class="badge ${k}">${k === 'paid' ? 'paid off' : k}</span></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="fig"><span>Paid <b>${money(d.paid)}</b> of ${money(d.price)}</span><span>Owing <b>${money(owed)}</b></span></div>
+      ${dueLine(d)}
       <div class="acts">
         ${main}
         ${d.status !== 'released' ? `<button class="ghost" data-a="pay" data-id="${d.id}">Record payment</button>` : ''}
         ${isPaid(d) && d.status !== 'released' ? `<button class="relb" data-a="release" data-id="${d.id}">Release</button>` : ''}
+        ${d.status !== 'released' && !isPaid(d) ? `<button class="ghost" data-a="plan" data-id="${d.id}">Plan</button>` : ''}
         <button class="ghost" data-a="hist" data-id="${d.id}">Payments</button>
         ${d.status !== 'released' ? `<button class="ghost" data-a="setup" data-id="${d.id}">Setup QR</button>` : ''}
         ${d.status !== 'released' ? `<button class="ghost" data-a="code" data-id="${d.id}">Code</button>` : ''}
@@ -246,6 +252,18 @@ function render() {
     list.appendChild(el);
   }
   renderPreview();
+}
+
+const EVERY = { 7: 'every week', 14: 'every 2 weeks', 30: 'every month' };
+function dueLine(d) {
+  if (d.status === 'released' || isPaid(d)) return '';
+  if (!d.plan) return '<div class="due">No fixed payment plan · lock by hand if needed</div>';
+  const p = d.plan, auto = d.autoLock ? 'auto-lock on' : 'auto-lock off';
+  if (p.behind > 0) {
+    const days = Math.max(0, Math.floor((Date.now() - p.lateSince) / 86400000));
+    return `<div class="due late">LATE ${days} day${days === 1 ? '' : 's'} · <b>${money(p.behind)}</b> behind (due ${fdate(p.lateSince)}) · ${auto}</div>`;
+  }
+  return `<div class="due">Next: <b>${money(p.nextDueAmount)}</b> due <b>${fdate(p.nextDueAt)}</b> · ${money(d.planAmount)} ${EVERY[d.planEveryDays] || ''} · ${auto}</div>`;
 }
 
 $('list').addEventListener('click', async (e) => {
@@ -265,6 +283,21 @@ $('list').addEventListener('click', async (e) => {
         const v = await ask({ title: 'Record payment', text: `Amount received from ${d.name} (K). Still owing ${money(Math.max(0, d.price - d.paid))}.`, value: '', number: true, okLabel: 'Save payment' });
         if (v === null) return;
         await api('POST', `/api/devices/${d.id}/payment`, { amount: Number(v) });
+        break;
+      }
+      case 'plan': {
+        const opt = (v, t) => `<option value="${v}"${Number(d.planEveryDays) === v ? ' selected' : ''}>${t}</option>`;
+        const ok = await ask({
+          title: `Payment plan — ${d.name}`,
+          text: `Owing ${money(Math.max(0, d.price - d.paid))}. A late payment locks the phone by itself and it unlocks by itself once the payment is recorded.`,
+          html: `<div class="pf">
+            <label>Installment (K)<input id="pfAmt" type="number" min="0" value="${d.planAmount || ''}"></label>
+            <label>Pay every<select id="pfEvery">${opt(7, 'Week')}${opt(14, '2 weeks')}${opt(30, 'Month (30 days)')}${opt(0, 'No fixed plan')}</select></label>
+            <label class="chk"><input id="pfAuto" type="checkbox"${d.autoLock ? ' checked' : ''}> Lock automatically when late</label></div>`,
+          okLabel: 'Save plan',
+        });
+        if (!ok) return;
+        await api('POST', `/api/devices/${d.id}/plan`, { planAmount: Number($('pfAmt').value), planEveryDays: Number($('pfEvery').value), autoLock: $('pfAuto').checked });
         break;
       }
       case 'release': {
@@ -368,6 +401,8 @@ async function start() {
     $('who').textContent = me.email;
     $('setPhone').value = me.shopPhone || '';
     $('setGrace').value = me.graceDays;
+    $('setLate').value = me.lateGraceDays ?? 1;
+    $('setFrp').value = me.frpAccount || '';
     renderAppState();
     $('addForm').graceDays.value = me.graceDays;
     if (me.shopPhone) $('addForm').shopPhone.value = me.shopPhone;
