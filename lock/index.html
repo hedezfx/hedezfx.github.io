@@ -126,6 +126,25 @@ input[type=checkbox]{width:18px!important;height:18px;padding:0;margin:0;flex:no
 .foot{color:var(--muted);font-size:12px;text-align:center;padding:6px 0 30px}
 .foot b{color:var(--ink)}
 .loading{min-height:100vh;display:grid;place-items:center;color:var(--muted)}
+/* USB setup */
+.box.wide{max-width:660px;max-height:92vh;overflow:auto}
+.box .lead{color:var(--ink);font-size:14px}
+.steps{margin:6px 0 0;padding:0;list-style:none;counter-reset:s;display:grid;gap:14px}
+.steps>li{counter-increment:s;display:grid;grid-template-columns:30px 1fr;gap:12px;font-size:13.5px;line-height:1.55;color:var(--ink)}
+.steps>li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:800;font-family:var(--display)}
+.steps>li b.h{display:block;font-family:var(--display);font-size:15px;margin-bottom:2px}
+.steps .tap{background:#EEF3FD;border-radius:6px;padding:1px 6px;font-weight:600;white-space:nowrap}
+.steps .note{color:var(--muted);font-size:12.5px;margin-top:4px}
+.steps .act{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.linkrow{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px}
+#usbQR canvas{background:#fff;padding:6px;border-radius:10px;border:1px solid var(--line)}
+.usbok{background:#E8F7F0;border:1px solid #A8DFC7;color:#0B5A3A;border-radius:10px;padding:9px 11px;font-size:12.5px;margin-top:6px}
+details.help{margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px}
+details.help summary{cursor:pointer;font-weight:700}
+details.help table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
+details.help td{border-top:1px solid var(--line);padding:7px 6px;vertical-align:top}
+details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(--alert);width:42%}
+.qrlink{background:none;border:none;color:var(--blue);padding:0;font-size:12.5px;text-decoration:underline;font-weight:600}
 </style>
 </head>
 <body>
@@ -168,7 +187,7 @@ input[type=checkbox]{width:18px!important;height:18px;padding:0;margin:0;flex:no
       <label>Offline days before a phone self-locks<input id="setGrace" type="number" min="1" max="60"></label>
       <label>Days late before auto-lock (0 = lock on the due day)<input id="setLate" type="number" min="0" max="30"></label>
       <label>Reset protection: shop Google account ID (numbers only)<input id="setFrp" inputmode="numeric" placeholder="e.g. 112233445566778899000"></label>
-      <label>App file for QR setup — the .apk (or the .zip from GitHub)<input id="apkFile" type="file" accept=".apk,.zip,application/zip"></label>
+      <label>App file for phone setup (USB and QR) — the .apk (or the .zip from GitHub)<input id="apkFile" type="file" accept=".apk,.zip,application/zip"></label>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><button class="ghost" id="saveSet" type="button">Save settings</button><button class="primary" id="upApk" type="button">Upload app file</button></div>
     </div>
   </div>
@@ -196,7 +215,7 @@ input[type=checkbox]{width:18px!important;height:18px;padding:0;margin:0;flex:no
           <label>Installment (K)<input name="planAmount" type="number" min="0" value="250"/></label>
           <label>Pay every<select name="planEveryDays"><option value="7">Week</option><option value="14">2 weeks</option><option value="30" selected>Month (30 days)</option><option value="0">No fixed plan</option></select></label>
           <label class="chk"><input type="checkbox" name="autoLock" checked/> Lock automatically when a payment is late</label>
-          <button class="primary" type="submit">Add &amp; show setup QR</button>
+          <button class="primary" type="submit">Add &amp; set up phone</button>
         </form>
       </div>
 
@@ -223,10 +242,48 @@ input[type=checkbox]{width:18px!important;height:18px;padding:0;margin:0;flex:no
 </div>
 </div>
 
+<!-- setup by USB cable (works on all phones) -->
+<div class="modal" id="usbModal"><div class="box wide">
+  <h3>Set up by USB cable — <span id="usbName"></span></h3>
+  <p class="lead">Works on every phone, including new Samsung phones where QR setup is blocked. Use this Windows computer and a USB data cable. It takes about 5 minutes.</p>
+  <ol class="steps">
+    <li><div><b class="h">Start the phone fresh</b>
+      Use a <b>new</b> or <b>factory-reset</b> phone. Go through the setup screens, but tap <span class="tap">Skip</span> for the <b>Google account</b> and the <b>Samsung account</b>. Do not add any account, and do not set up Secure Folder.
+      <div class="note">Wi-Fi is fine. A screen lock PIN is fine.</div></div></li>
+    <li><div><b class="h">Turn on USB debugging</b>
+      <b>Samsung:</b> Settings → About phone → Software information → tap <span class="tap">Build number</span> <b>7 times</b>. Go back to Settings → <span class="tap">Developer options</span> (at the very bottom) → turn on <span class="tap">USB debugging</span>.
+      <div class="note">Tecno, Infinix, itel and others: Settings → About phone → tap Build number 7 times, then Settings → System → Developer options → USB debugging.</div></div></li>
+    <li><div><b class="h">Plug the phone into this computer</b>
+      Use a cable that carries data (not a charge-only cable). A box appears on the phone: tick <span class="tap">Always allow from this computer</span> and tap <span class="tap">Allow</span>.</div></li>
+    <li><div><b class="h">Download and run the installer</b>
+      This installer is made for <b id="usbName2"></b> and the app file you uploaded.
+      <div class="act"><button class="primary" id="usbDl" type="button">Download installer</button></div>
+      <div class="note">Open the downloaded file. If the browser asks, choose <b>Keep</b>. If Windows says “Windows protected your PC”, click <b>More info</b> → <b>Run anyway</b>. A blue window opens and does everything: it downloads the Android tools (first time only), downloads M&amp;P Lock, installs it and gives it control of the phone. If the phone shows a Play Protect box, tap <b>More details</b> → <b>Install anyway</b>.</div>
+      <div class="usbok">Wait until the window turns <b>green</b> and says <b>DONE</b>. USB debugging switches itself off on the phone, so you can unplug it.</div></div></li>
+    <li><div><b class="h">Link the phone to this customer</b>
+      On the phone, open the <b>Camera</b> and point it at this QR → tap the text that appears → <span class="tap">Copy</span>. Open the <b>M&amp;P Lock</b> app, press and hold the code box → <span class="tap">Paste</span> → tap <span class="tap">Enroll</span>.
+      <div class="linkrow"><div id="usbQR"></div><div><button class="ghost" id="usbCopy" type="button">Copy code</button><div class="note">Keep this code private — it is the phone's key.</div></div></div></div></li>
+    <li><div><b class="h">Check it worked</b>
+      Within a minute this customer's card shows <b>checked in just now</b>. The app on the phone says <b>Protection: FULL</b>. Hand the phone to the customer.</div></li>
+  </ol>
+  <details class="help"><summary>Problems? What the blue window says and what to do</summary>
+    <table>
+      <tr><td>Phone NOT found</td><td>Use a different cable or USB port. Check USB debugging is on. Samsung phones may need the <a href="https://developer.samsung.com/android-usb-driver" target="_blank" rel="noopener">Samsung USB driver</a> — install it, then press a key to try again.</td></tr>
+      <tr><td>The phone is asking for permission</td><td>Unlock the phone, tick “Always allow”, tap Allow, then press a key.</td></tr>
+      <tr><td>There is an account on the phone</td><td>Settings → Accounts and backup → Manage accounts → remove every account. Then run the installer again.</td></tr>
+      <tr><td>Another user or Secure Folder</td><td>Remove Secure Folder / Dual Messenger, or factory-reset and redo step 1.</td></tr>
+      <tr><td>Phone already set up</td><td>Factory-reset the phone and start again from step 1, skipping all accounts.</td></tr>
+      <tr><td>Download failed</td><td>Check the computer's internet and run the installer again.</td></tr>
+      <tr><td>Anything else</td><td>Take a photo of the blue window and send it to M&amp;P Developers.</td></tr>
+    </table>
+  </details>
+  <div class="row"><button class="qrlink" id="usbToQR" type="button">Older phone? Use QR setup instead</button><button class="primary" data-close>Close</button></div>
+</div></div>
+
 <!-- setup QR (no computer) -->
 <div class="modal" id="setupModal"><div class="box" style="text-align:center;max-width:420px">
   <h3>Set up by QR — <span id="setupName"></span></h3>
-  <p>Use a <b>new or factory-reset</b> phone with <b>no accounts signed in</b>. On the very first welcome screen, tap the same empty spot <b>6 times</b>. Connect to Wi-Fi when asked, then scan this QR. The phone installs M&amp;P Lock and links itself to this customer.</p>
+  <p>Best for older phones (Android 13 and below). New Samsung phones block QR setup — use <b>USB setup</b> for those. Use a <b>new or factory-reset</b> phone with <b>no accounts signed in</b>. On the very first welcome screen, tap the same empty spot <b>6 times</b>. Connect to Wi-Fi when asked, then scan this QR. The phone installs M&amp;P Lock and links itself to this customer.</p>
   <div id="setupBox"></div>
   <div class="row"><button class="primary" data-close>Done</button></div>
 </div></div>

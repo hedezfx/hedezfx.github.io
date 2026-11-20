@@ -120,7 +120,7 @@ $('addForm').addEventListener('submit', async (e) => {
     $('addForm').shopPhone.value = me.shopPhone || '';
     selected = j.device.id;
     await refresh();
-    openSetupQR(j.device.id, j.device.name);
+    openUsbSetup(j.device.id, j.device.name);
   } catch (err) { banner(err.message); }
 });
 
@@ -187,7 +187,7 @@ async function apkFromZip(file) {
   throw new Error('No .apk inside that zip.');
 }
 function renderAppState() {
-  $('appState').textContent = me.app ? `app ready (${(me.app.size / 1048576).toFixed(1)} MB)` : 'no app uploaded yet — QR setup needs it';
+  $('appState').textContent = me.app ? `app ready (${(me.app.size / 1048576).toFixed(1)} MB)` : 'no app uploaded yet — phone setup needs it';
 }
 
 /* ---------- render ---------- */
@@ -245,7 +245,8 @@ function render() {
         ${isPaid(d) && d.status !== 'released' ? `<button class="relb" data-a="release" data-id="${d.id}">Release</button>` : ''}
         ${d.status !== 'released' && !isPaid(d) ? `<button class="ghost" data-a="plan" data-id="${d.id}">Plan</button>` : ''}
         <button class="ghost" data-a="hist" data-id="${d.id}">Payments</button>
-        ${d.status !== 'released' ? `<button class="ghost" data-a="setup" data-id="${d.id}">Setup QR</button>` : ''}
+        ${d.status !== 'released' ? `<button class="ghost" data-a="usb" data-id="${d.id}">USB setup</button>` : ''}
+        ${d.status !== 'released' ? `<button class="ghost" data-a="setup" data-id="${d.id}">QR setup</button>` : ''}
         ${d.status !== 'released' ? `<button class="ghost" data-a="code" data-id="${d.id}">Code</button>` : ''}
         <button class="ghost" data-a="del" data-id="${d.id}">Delete</button>
       </div>`;
@@ -312,6 +313,7 @@ $('list').addEventListener('click', async (e) => {
         return;
       }
       case 'setup': openSetupQR(d.id, d.name); return;
+      case 'usb': openUsbSetup(d.id, d.name); return;
       case 'code': {
         const j = await api('GET', `/api/devices/${d.id}/enroll`);
         openCodeQR(j.code);
@@ -360,7 +362,7 @@ function drawQR(boxId, text, size) {
   if (window.QRCode && QRCode.toCanvas) QRCode.toCanvas(c, text, { width: size || 220, margin: 2, color: { dark: '#07193D' } }, (err) => { if (err) box.innerHTML = '<p>Could not draw QR.</p>'; });
 }
 async function openSetupQR(id, name) {
-  if (!me.app) { banner('Upload the M&P Lock app file in Shop settings first, then QR setup will work.'); $('setPhone').scrollIntoView({ behavior: 'smooth' }); return; }
+  if (!me.app) { banner('Upload the M&P Lock app file in Shop settings first, then phone setup will work.'); $('setPhone').scrollIntoView({ behavior: 'smooth' }); return; }
   try {
     const j = await api('GET', `/api/devices/${id}/setup-qr`);
     $('setupName').textContent = name;
@@ -380,6 +382,224 @@ $('copyBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(lastCode); $('copyBtn').textContent = 'Copied'; }
   catch { $('copyBtn').textContent = 'Select the code and copy it'; }
 };
+
+/* ---------- USB setup (Windows installer) ---------- */
+const ADMIN = 'com.mpdevelopers.lock/.AdminReceiver';
+let usb = null; // { id, name, url, hex, code }
+function b64urlToHex(b) {
+  let t = String(b || '').replace(/-/g, '+').replace(/_/g, '/');
+  while (t.length % 4) t += '=';
+  return [...atob(t)].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+}
+async function openUsbSetup(id, name) {
+  if (!me.app) { banner('Upload the M&P Lock app file in Shop settings first, then phone setup will work.'); $('setPhone').scrollIntoView({ behavior: 'smooth' }); return; }
+  try {
+    const [q, e] = await Promise.all([api('GET', `/api/devices/${id}/setup-qr`), api('GET', `/api/devices/${id}/enroll`)]);
+    const qr = JSON.parse(q.qr);
+    usb = {
+      id, name,
+      url: qr['android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION'],
+      hex: b64urlToHex(qr['android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM']),
+      code: e.code,
+    };
+    $('usbName').textContent = name; $('usbName2').textContent = name;
+    drawQR('usbQR', usb.code, 190);
+    $('usbCopy').textContent = 'Copy code';
+    $('usbModal').scrollTop = 0; $('usbModal').querySelector('.box').scrollTop = 0;
+    $('usbModal').classList.add('open');
+  } catch (err) { banner(err.message); }
+}
+$('usbCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(usb.code); $('usbCopy').textContent = 'Copied'; }
+  catch { $('usbCopy').textContent = 'Could not copy'; }
+};
+$('usbToQR').onclick = () => { $('usbModal').classList.remove('open'); if (usb) openSetupQR(usb.id, usb.name); };
+$('usbDl').onclick = () => {
+  if (!usb) return;
+  const safe = usb.name.replace(/[^A-Za-z0-9 .'-]/g, '').trim().slice(0, 40) || 'customer';
+  const bat = installerBat(safe, usb.url, usb.hex);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([bat], { type: 'application/octet-stream' }));
+  a.download = 'MP-Lock-setup-' + (safe.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'phone') + '.bat';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+};
+// Windows batch file: downloads platform-tools + the app, checks it, installs, makes it Device Owner.
+function installerBat(name, url, hex) {
+  if (!/^https:\/\/[A-Za-z0-9.\/_-]+$/.test(url)) throw new Error('Unexpected app address.');
+  if (!/^[0-9a-f]{64}$/.test(hex)) hex = '';
+  const L = [
+    '@echo off',
+    'setlocal EnableExtensions',
+    'title M^&P Lock - USB phone setup',
+    'color 1F',
+    'set "NAME=' + name + '"',
+    'set "APKURL=' + url + '"',
+    'set "APKSHA=' + hex + '"',
+    'set "ADMIN=' + ADMIN + '"',
+    'set "WORK=%LOCALAPPDATA%\\MPLock"',
+    'if not exist "%WORK%" mkdir "%WORK%"',
+    'echo.',
+    'echo  ==================================================',
+    'echo    M^&P Lock - USB phone setup',
+    'echo    Customer: %NAME%',
+    'echo  ==================================================',
+    'echo.',
+    'where curl >nul 2>&1 || goto oldwindows',
+    'set "ADB="',
+    'if exist "C:\\platform-tools\\adb.exe" set "ADB=C:\\platform-tools\\adb.exe"',
+    'if exist "%WORK%\\platform-tools\\adb.exe" set "ADB=%WORK%\\platform-tools\\adb.exe"',
+    'if defined ADB goto haveadb',
+    'echo  [1/5] Downloading the Android tools from Google - first time only...',
+    'curl -f -L -s -S -o "%WORK%\\pt.zip" "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"',
+    'if errorlevel 1 goto netfail',
+    'tar -xf "%WORK%\\pt.zip" -C "%WORK%"',
+    'if not exist "%WORK%\\platform-tools\\adb.exe" goto toolfail',
+    'set "ADB=%WORK%\\platform-tools\\adb.exe"',
+    ':haveadb',
+    'echo  [1/5] Android tools ready.',
+    'echo  [2/5] Downloading the M^&P Lock app...',
+    'if exist "%WORK%\\mplock.apk" del /q "%WORK%\\mplock.apk"',
+    'curl -f -L -s -S -o "%WORK%\\mplock.apk" "%APKURL%"',
+    'if errorlevel 1 goto netfail',
+    'if "%APKSHA%"=="" goto apkok',
+    'certutil -hashfile "%WORK%\\mplock.apk" SHA256 | findstr /R /X "[0-9a-fA-F ]*" > "%WORK%\\hash.txt"',
+    'set "HASH="',
+    'set /p HASH=<"%WORK%\\hash.txt"',
+    'if not defined HASH goto apkok',
+    'set "HASH=%HASH: =%"',
+    'if /I not "%HASH%"=="%APKSHA%" goto badfile',
+    ':apkok',
+    'echo  [2/5] App downloaded and checked.',
+    ':waitphone',
+    'echo  [3/5] Looking for the phone on the USB cable...',
+    '"%ADB%" start-server >nul 2>&1',
+    'set "STATE="',
+    '"%ADB%" get-state > "%WORK%\\state.txt" 2>&1',
+    'set /p STATE=<"%WORK%\\state.txt"',
+    'if /I "%STATE%"=="device" goto gotphone',
+    'findstr /I "unauthorized" "%WORK%\\state.txt" >nul && goto unauth',
+    'findstr /I /C:"more than one" "%WORK%\\state.txt" >nul && goto many',
+    'echo.',
+    'echo  Phone NOT found. Check these:',
+    'echo    - The phone is plugged in with a DATA cable. Try another cable or USB port.',
+    'echo    - USB debugging is ON: Settings, Developer options, USB debugging.',
+    'echo    - Samsung phones may need the Samsung USB driver:',
+    'echo      https://developer.samsung.com/android-usb-driver',
+    'echo.',
+    'echo  Fix it, then press any key to try again.',
+    'pause >nul',
+    'goto waitphone',
+    ':unauth',
+    'echo.',
+    'echo  The phone is asking for permission.',
+    'echo  Unlock the phone, tick "Always allow from this computer" and tap ALLOW.',
+    'echo  Then press any key here.',
+    'pause >nul',
+    'goto waitphone',
+    ':many',
+    'echo.',
+    'echo  More than one phone is plugged in. Unplug the others, then press any key.',
+    'pause >nul',
+    'goto waitphone',
+    ':gotphone',
+    'set "MODEL=phone"',
+    '"%ADB%" shell getprop ro.product.model > "%WORK%\\model.txt" 2>nul',
+    'set /p MODEL=<"%WORK%\\model.txt"',
+    'echo  [3/5] Found: %MODEL%',
+    'echo  [4/5] Installing M^&P Lock on the phone...',
+    'echo        If the phone shows a Play Protect box, tap More details, then Install anyway.',
+    '"%ADB%" install -r -g "%WORK%\\mplock.apk" > "%WORK%\\install.txt" 2>&1',
+    'findstr /C:"Success" "%WORK%\\install.txt" >nul || goto installfail',
+    'echo  [4/5] App installed.',
+    'echo  [5/5] Giving M^&P Lock control of the phone...',
+    '"%ADB%" shell dpm set-device-owner %ADMIN% > "%WORK%\\owner.txt" 2>&1',
+    'findstr /C:"Success" "%WORK%\\owner.txt" >nul && goto done',
+    'findstr /I /C:"already set" "%WORK%\\owner.txt" >nul && goto done',
+    'findstr /I /C:"accounts" "%WORK%\\owner.txt" >nul && goto accounts',
+    'findstr /I /C:"several users" /C:"multiple users" "%WORK%\\owner.txt" >nul && goto users',
+    'findstr /I /C:"provisioned" "%WORK%\\owner.txt" >nul && goto provisioned',
+    '"%ADB%" shell dumpsys device_policy > "%WORK%\\dp.txt" 2>&1',
+    'findstr /C:"com.mpdevelopers.lock" "%WORK%\\dp.txt" >nul && goto done',
+    'goto ownerfail',
+    ':done',
+    '"%ADB%" shell am start -n com.mpdevelopers.lock/.MainActivity >nul 2>&1',
+    'color 2F',
+    'echo.',
+    'echo  ==================================================',
+    'echo    DONE - M^&P Lock now controls this phone.',
+    'echo  ==================================================',
+    'echo.',
+    'echo  Next: go back to the dashboard and do step 5 -',
+    'echo  link the phone to %NAME%.',
+    'echo  USB debugging is now switched off on the phone. You can unplug it.',
+    'echo.',
+    'pause',
+    'exit /b 0',
+    ':accounts',
+    'call :red',
+    'echo  There is an account on the phone, so it cannot be set up.',
+    'echo  On the phone: Settings, Accounts and backup, Manage accounts -',
+    'echo  remove every account. Then run this installer again.',
+    'goto showowner',
+    ':users',
+    'call :red',
+    'echo  The phone has another user, Secure Folder or Dual Messenger.',
+    'echo  Remove it, or factory-reset the phone and start again. Then run this again.',
+    'goto showowner',
+    ':provisioned',
+    'call :red',
+    'echo  The phone was already set up before.',
+    'echo  Factory-reset it, go through setup skipping ALL accounts, then run this again.',
+    'goto showowner',
+    ':ownerfail',
+    'call :red',
+    'echo  Could not give M^&P Lock control of the phone.',
+    'echo  Open M^&P Lock on the phone: if it says Protection: FULL, it worked anyway.',
+    'echo  If not, take a photo of this window and send it to M^&P Developers.',
+    ':showowner',
+    'echo.',
+    'echo  Details:',
+    'type "%WORK%\\owner.txt"',
+    'goto fail',
+    ':installfail',
+    'call :red',
+    'echo  The app did not install.',
+    'findstr /I "INCOMPATIBLE" "%WORK%\\install.txt" >nul && echo  An older test version of M^&P Lock is on the phone. Factory-reset the phone, then run this again.',
+    'echo.',
+    'echo  Details:',
+    'type "%WORK%\\install.txt"',
+    'goto fail',
+    ':badfile',
+    'call :red',
+    'echo  The app file did not download correctly. Check the internet and run this again.',
+    'goto fail',
+    ':netfail',
+    'call :red',
+    'echo  Download failed. Check this computer\'s internet connection and run this again.',
+    'goto fail',
+    ':toolfail',
+    'call :red',
+    'echo  Could not unpack the Android tools. Run this installer again.',
+    'goto fail',
+    ':oldwindows',
+    'call :red',
+    'echo  This computer needs Windows 10 or newer to run the installer.',
+    'goto fail',
+    ':red',
+    'color 4F',
+    'echo.',
+    'echo  ==================================================',
+    'echo    PROBLEM',
+    'echo  ==================================================',
+    'exit /b 0',
+    ':fail',
+    'echo.',
+    'pause',
+    'exit /b 1',
+  ];
+  return L.join('\r\n') + '\r\n';
+}
 
 /* ---------- start ---------- */
 async function start() {
