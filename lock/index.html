@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>M&amp;P Lock — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;700;800&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F5FC;--surface:#FFFFFF;--ink:#07193D;--muted:#4A5B80;--line:#D3DDF1;
+  --blue:#1C54F2;--blue-hi:#3B7BFF;--blue-lo:#1238C4;--sky:#9CC3FF;--navy:#07193D;--hero-muted:#B4CBF7;
+  --alert:#EC5338;--ok:#12A66A;
+  --display:"Red Hat Display",system-ui,"Segoe UI",sans-serif;--body:"Red Hat Text",system-ui,"Segoe UI",sans-serif;--mono:"Red Hat Mono",ui-monospace,Consolas,monospace;
+  --shadow:0 1px 2px rgba(7,25,61,.06),0 10px 28px rgba(7,25,61,.08);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body)}
+/* login */
+.auth{min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 80% 0%,#1C54F2 0,#07193D 55%);padding:20px}
+.authcard{background:#fff;border-radius:18px;padding:28px 24px;width:100%;max-width:360px;display:grid;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand svg{width:32px;height:40px}
+.brand b{font-family:var(--display);font-size:21px;font-weight:800}
+.brand b span{color:var(--blue)}
+.authcard h2{margin:0;font-family:var(--display);font-size:18px}
+.authcard p{margin:0;color:var(--muted);font-size:14px}
+.authcard label{display:grid;gap:5px;font-size:12px;font-weight:600;color:var(--muted)}
+.authcard input{padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;font-family:inherit;background:#F7F9FE}
+.authcard input:focus{outline:2px solid var(--sky);border-color:var(--blue)}
+.aerr{color:var(--alert);font-size:13px;min-height:18px}
+.aok{color:var(--ok)}
+/* app */
+header{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+header svg{width:30px;height:37px;flex:none}
+header .t{font-family:var(--display);font-weight:800;font-size:19px}
+header .t span{color:var(--sky);font-weight:700}
+header .who{margin-left:auto;color:var(--hero-muted);font-size:12px;margin-right:12px}
+header .out{background:transparent;border:1px solid rgba(180,203,247,.4);color:#fff;padding:6px 12px;font-size:12px;border-radius:9px;cursor:pointer}
+.wrap{max-width:1100px;margin:0 auto;padding:22px;display:grid;gap:20px}
+.banner{border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5}
+.banner.err{background:#FDECEA;border:1px solid #F4B4A8;color:#8A2414}
+.banner.ok{background:#E8F7F0;border:1px solid #A8DFC7;color:#0B5A3A}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+@media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat .k{font-size:12px;color:var(--muted);font-weight:600}
+.stat .v{font-family:var(--display);font-weight:800;font-size:30px;margin-top:4px}
+.stat .n{font-size:12px;color:var(--muted);margin-top:2px}
+.stat.lock .v{color:var(--alert)} .stat.paid .v{color:var(--ok)} .stat.owed .v{color:var(--blue-lo)}
+.cols{display:grid;grid-template-columns:1.35fr .85fr;gap:20px;align-items:start}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.panel h2{margin:0 0 14px;font-family:var(--display);font-size:16px;font-weight:700}
+.panel h2 .s{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px;font-family:var(--body)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:600}
+input,textarea,select{background:#F7F9FE;border:1px solid var(--line);border-radius:9px;padding:10px;color:var(--ink);font-size:14px;font-family:inherit}
+input:focus,textarea:focus{outline:2px solid var(--sky);border-color:var(--blue)}
+button{font-family:inherit;border:none;border-radius:9px;padding:10px 14px;font-weight:600;font-size:13px;cursor:pointer;transition:.15s}
+button:active{transform:scale(.98)}
+.primary{background:var(--blue);color:#fff} .primary:hover{background:var(--blue-lo)}
+.grid .primary{grid-column:1/-1;margin-top:4px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{background:#EEF3FD;color:var(--muted);padding:6px 11px;font-size:12px}
+.filters button.on{background:var(--navy);color:#fff}
+.list{display:grid;gap:12px}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:24px}
+.card{border:1px solid var(--line);background:#FBFCFF;border-radius:13px;padding:14px;display:grid;gap:10px;cursor:pointer}
+.card.sel{border-color:var(--blue);box-shadow:0 0 0 2px rgba(28,84,242,.15)}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.nm{font-weight:700;font-size:15px}
+.mt{color:var(--muted);font-size:12px;margin-top:2px}
+.seen{font-size:11px;color:var(--muted)} .seen.stale{color:var(--alert)}
+.badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:700;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px}
+.badge.active{background:rgba(18,166,106,.12);color:var(--ok)}
+.badge.locked{background:rgba(236,83,56,.12);color:var(--alert)}
+.badge.released,.badge.paid{background:rgba(28,84,242,.1);color:var(--blue)}
+.bar{height:6px;border-radius:4px;background:#E6ECF8;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--blue)}
+.fig{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.fig b{color:var(--ink)}
+.acts{display:flex;gap:7px;flex-wrap:wrap}
+.acts button{padding:7px 11px;font-size:12px}
+.lockb{background:var(--alert);color:#fff} .unlockb{background:var(--ok);color:#fff} .relb{background:var(--blue);color:#fff}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.ghost:hover{border-color:var(--blue);color:var(--blue)}
+.hist{max-height:180px;overflow:auto;font-size:12px;color:var(--muted);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.hist div{display:flex;justify-content:space-between;padding:3px 0}
+.phone{width:230px;margin:0 auto;border:9px solid #0E2C99;border-radius:34px;background:#000;aspect-ratio:9/19;overflow:hidden;position:relative;box-shadow:0 20px 50px rgba(7,25,61,.35)}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:84px;height:18px;background:#0E2C99;border-radius:0 0 12px 12px;z-index:3}
+.scr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;gap:11px;color:#fff}
+.scr.home{background:linear-gradient(160deg,#1C54F2,#07193D);justify-content:flex-start;padding-top:60px}
+.scr.home .clock{font-size:40px;font-weight:300}
+.scr.home .date{color:var(--hero-muted);font-size:12px}
+.scr.home .apps{margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;width:100%;padding-bottom:14px}
+.scr.home .apps i{aspect-ratio:1;border-radius:12px;background:rgba(255,255,255,.16);display:block}
+.scr.lock{background:var(--navy)}
+.scr.lock svg{width:58px;height:72px}
+.scr.lock .lt{color:var(--alert);font-weight:800;font-size:16px;font-family:var(--display)}
+.scr.lock .lm{font-size:11px;line-height:1.45}
+.scr.lock .pb{width:100%;display:flex;flex-direction:column;gap:7px;margin-top:4px}
+.scr.lock .pb button{font-size:11px;padding:8px;cursor:default}
+.scr.lock .by{color:var(--hero-muted);font-size:9px;margin-top:6px}
+.phint{color:var(--muted);font-size:12px;text-align:center;margin-top:10px}
+.modal{position:fixed;inset:0;background:rgba(7,25,61,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal.open{display:flex}
+.box{background:var(--surface);border-radius:16px;padding:22px;max-width:360px;width:100%;box-shadow:var(--shadow)}
+.box h3{margin:0 0 6px;font-size:17px;font-family:var(--display)}
+.box p{color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 12px}
+.box textarea,.box input{width:100%}
+.row{display:flex;gap:8px;margin-top:14px}
+.row button{flex:1}
+#qrbox,#setupBox{display:flex;justify-content:center;margin:8px 0}
+#qrbox canvas,#setupBox canvas{background:#fff;padding:8px;border-radius:10px;border:1px solid var(--line);max-width:100%}
+#qrtext{background:#F7F9FE;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:10px;color:var(--muted);white-space:pre-wrap;word-break:break-all;font-family:var(--mono)}
+.foot{color:var(--muted);font-size:12px;text-align:center;padding:6px 0 30px}
+.foot b{color:var(--ink)}
+.loading{min-height:100vh;display:grid;place-items:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">Loading…</div>
+
+<!-- LOGIN -->
+<div class="auth" id="auth" hidden>
+  <form class="authcard" id="authForm">
+    <div class="brand">
+      <svg viewBox="-8 -8 114 140" aria-hidden="true"><path d="M49,0 L98,18 L98,61 C98,93 76.5,114 49,124 C21.5,114 0,93 0,61 L0,18 Z" fill="#1C54F2" stroke="#fff" stroke-width="7" stroke-linejoin="round"/><path d="M28,44 L46.5,60 L28,76 M54,77 L72.5,77" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>M&amp;P <span>Lock</span></b>
+    </div>
+    <h2 id="authTitle">Log in</h2>
+    <p id="authText">Shop owner login.</p>
+    <label>Email<input id="aEmail" type="email" autocomplete="username" required></label>
+    <label>Password<input id="aPass" type="password" autocomplete="current-password" minlength="8" required></label>
+    <button class="primary" type="submit" id="authBtn">Log in</button>
+    <button class="ghost" type="button" id="authSwitch">First time here? Create the owner account</button>
+    <div class="aerr" id="aErr"></div>
+  </form>
+</div>
+
+<!-- APP -->
+<div id="app" hidden>
+<header>
+  <svg viewBox="-8 -8 114 140" aria-hidden="true"><path d="M49,0 L98,18 L98,61 C98,93 76.5,114 49,124 C21.5,114 0,93 0,61 L0,18 Z" fill="#1C54F2" stroke="#fff" stroke-width="7" stroke-linejoin="round"/><path d="M28,44 L46.5,60 L28,76 M54,77 L72.5,77" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <div class="t">M&amp;P <span>Lock</span></div>
+  <div class="who" id="who"></div>
+  <button class="out" id="logout">Log out</button>
+</header>
+
+<div class="wrap">
+  <div class="banner err" id="banner" hidden></div>
+
+  <div class="panel" id="setPanel">
+    <h2>Shop settings <span class="s" id="appState"></span></h2>
+    <div class="grid">
+      <label>Default shop phone (shown on locked phones)<input id="setPhone" placeholder="+260…"></label>
+      <label>Offline days before a phone self-locks<input id="setGrace" type="number" min="1" max="60"></label>
+      <label>App file for QR setup — the .apk (or the .zip from GitHub)<input id="apkFile" type="file" accept=".apk,.zip,application/zip"></label>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><button class="ghost" id="saveSet" type="button">Save settings</button><button class="primary" id="upApk" type="button">Upload app file</button></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">On lay-by</div><div class="v" id="sOn">0</div><div class="n">still being paid off</div></div>
+    <div class="stat lock"><div class="k">Locked now</div><div class="v" id="sLock">0</div><div class="n">missed payments</div></div>
+    <div class="stat paid"><div class="k">Paid off</div><div class="v" id="sPaid">0</div><div class="n">fully paid</div></div>
+    <div class="stat owed"><div class="k">Total still owed</div><div class="v" id="sOwed">K0</div><div class="n" id="sAll">from 0 phones on lay-by</div></div>
+  </div>
+
+  <div class="cols">
+    <div style="display:grid;gap:20px">
+      <div class="panel">
+        <h2>Add a customer phone</h2>
+        <form id="addForm" class="grid">
+          <label>Customer name<input name="name" required placeholder="John Banda"/></label>
+          <label>Customer phone<input name="phone" placeholder="+260…"/></label>
+          <label>Device model<input name="model" placeholder="Tecno Spark 20"/></label>
+          <label>Shop phone (shown on lock)<input name="shopPhone" placeholder="+260…"/></label>
+          <label>IMEI (optional)<input name="imei" placeholder="35…"/></label>
+          <label>Offline days before self-lock<input name="graceDays" type="number" min="1" max="60" value="7"/></label>
+          <label>Total price (K)<input name="price" type="number" min="0" value="3000"/></label>
+          <label>Deposit paid (K)<input name="paid" type="number" min="0" value="500"/></label>
+          <button class="primary" type="submit">Add &amp; show setup QR</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Phones <span class="s" id="count"></span></h2>
+        <div class="filters" id="filters">
+          <button data-f="all" class="on">All</button>
+          <button data-f="layby">On lay-by</button>
+          <button data-f="locked">Locked</button>
+          <button data-f="paid">Paid off</button>
+        </div>
+        <div id="list" class="list"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="position:sticky;top:80px">
+      <h2>Phone preview <span class="s" id="pvName">select a phone</span></h2>
+      <div class="phone"><div class="notch"></div><div id="screen" class="scr home"></div></div>
+      <div class="phint" id="pvHint">What the customer sees on their phone.</div>
+    </div>
+  </div>
+
+  <div class="foot"><b>M&amp;P Lock</b> · by M&amp;P Developers · Web · Security · Software · Lusaka, Zambia</div>
+</div>
+</div>
+
+<!-- setup QR (no computer) -->
+<div class="modal" id="setupModal"><div class="box" style="text-align:center;max-width:420px">
+  <h3>Set up by QR — <span id="setupName"></span></h3>
+  <p>Use a <b>new or factory-reset</b> phone with <b>no accounts signed in</b>. On the very first welcome screen, tap the same empty spot <b>6 times</b>. Connect to Wi-Fi when asked, then scan this QR. The phone installs M&amp;P Lock and links itself to this customer.</p>
+  <div id="setupBox"></div>
+  <div class="row"><button class="primary" data-close>Done</button></div>
+</div></div>
+
+<!-- paste-code enrollment QR -->
+<div class="modal" id="qrModal"><div class="box" style="text-align:center">
+  <h3>Enrollment code</h3>
+  <p>For a phone already set up with M&amp;P Lock: open the app and paste this code (or scan the QR). Keep it private — it is the phone's key.</p>
+  <div id="qrbox"></div>
+  <div id="qrtext"></div>
+  <div class="row"><button class="ghost" id="copyBtn">Copy code</button><button class="primary" data-close>Done</button></div>
+</div></div>
+
+<!-- generic input / confirm dialog -->
+<div class="modal" id="askModal"><div class="box">
+  <h3 id="askTitle"></h3>
+  <p id="askText"></p>
+  <div id="askField"></div>
+  <div class="row"><button class="ghost" data-close>Cancel</button><button class="primary" id="askOk">OK</button></div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
