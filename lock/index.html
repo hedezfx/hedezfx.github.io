@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <title>M&amp;P Lock — Admin</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://fwifvwthvgmcclrwdtqm.supabase.co wss://fwifvwthvgmcclrwdtqm.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;700;800&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@500&display=swap" rel="stylesheet">
@@ -32,6 +35,11 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body)
 .authcard input{padding:11px;border:1px solid var(--line);border-radius:10px;font-size:15px;font-family:inherit;background:#F7F9FE}
 .authcard input:focus{outline:2px solid var(--sky);border-color:var(--blue)}
 .aerr{color:var(--alert);font-size:13px;min-height:18px}
+.legal{font-size:12.5px;color:var(--muted);margin:0}.legal a{color:inherit}
+.linkbtn{background:none;border:0;padding:2px 0;color:var(--blue);font:600 13.5px var(--body);cursor:pointer;justify-self:start;align-self:flex-start;text-decoration:underline;text-underline-offset:3px}
+.linkbtn.center{justify-self:center;align-self:center}
+.linkbtn:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
+button:disabled{opacity:.6;cursor:progress}
 .aok{color:var(--ok)}
 /* app */
 header{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
@@ -162,9 +170,11 @@ details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(-
     <p id="authText">Shop owner login.</p>
     <label>Email<input id="aEmail" type="email" autocomplete="username" required></label>
     <label>Password<input id="aPass" type="password" autocomplete="current-password" minlength="8" required></label>
+    <button class="linkbtn" type="button" id="authForgot">Forgot password?</button>
     <button class="primary" type="submit" id="authBtn">Log in</button>
-    <button class="ghost" type="button" id="authSwitch">First time here? Create the owner account</button>
-    <div class="aerr" id="aErr"></div>
+    <button class="linkbtn center" type="button" id="authSwitch">First time here? Create the owner account</button>
+    <div class="aerr" id="aErr" role="status" aria-live="polite"></div>
+    <p class="legal">By logging in or creating an account you agree to the <a href="../terms.html">Terms of Use</a> and <a href="../privacy.html">Privacy Policy</a>.</p>
   </form>
 </div>
 
@@ -183,7 +193,7 @@ details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(-
   <div class="panel" id="setPanel">
     <h2>Shop settings <span class="s" id="appState"></span></h2>
     <div class="grid">
-      <label>Default shop phone (shown on locked phones)<input id="setPhone" placeholder="+260…"></label>
+      <label>Default shop phone (shown on locked phones)<input id="setPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+260…"></label>
       <label>Offline days before a phone self-locks<input id="setGrace" type="number" min="1" max="60"></label>
       <label>Days late before auto-lock (0 = lock on the due day)<input id="setLate" type="number" min="0" max="30"></label>
       <label>Reset protection: shop Google account ID (numbers only)<input id="setFrp" inputmode="numeric" placeholder="e.g. 112233445566778899000"></label>
@@ -204,15 +214,15 @@ details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(-
       <div class="panel">
         <h2>Add a customer phone</h2>
         <form id="addForm" class="grid">
-          <label>Customer name<input name="name" required placeholder="John Banda"/></label>
-          <label>Customer phone<input name="phone" placeholder="+260…"/></label>
+          <label>Customer name<input name="name" required autocomplete="off" placeholder="John Banda"/></label>
+          <label>Customer phone<input name="phone" type="tel" inputmode="tel" autocomplete="off" placeholder="+260…"/></label>
           <label>Device model<input name="model" placeholder="Tecno Spark 20"/></label>
-          <label>Shop phone (shown on lock)<input name="shopPhone" placeholder="+260…"/></label>
-          <label>IMEI (optional)<input name="imei" placeholder="35…"/></label>
+          <label>Shop phone (shown on lock)<input name="shopPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="+260…"/></label>
+          <label>IMEI (optional)<input name="imei" inputmode="numeric" autocomplete="off" maxlength="17" placeholder="35…"/></label>
           <label>Offline days before self-lock<input name="graceDays" type="number" min="1" max="60" value="7"/></label>
-          <label>Total price (K)<input name="price" type="number" min="0" value="3000"/></label>
-          <label>Deposit paid (K)<input name="paid" type="number" min="0" value="500"/></label>
-          <label>Installment (K)<input name="planAmount" type="number" min="0" value="250"/></label>
+          <label>Total price (K)<input name="price" type="number" min="0" inputmode="decimal" value="3000"/></label>
+          <label>Deposit paid (K)<input name="paid" type="number" min="0" inputmode="decimal" value="500"/></label>
+          <label>Installment (K)<input name="planAmount" type="number" min="0" inputmode="decimal" value="250"/></label>
           <label>Pay every<select name="planEveryDays"><option value="7">Week</option><option value="14">2 weeks</option><option value="30" selected>Month (30 days)</option><option value="0">No fixed plan</option></select></label>
           <label class="chk"><input type="checkbox" name="autoLock" checked/> Lock automatically when a payment is late</label>
           <button class="primary" type="submit">Add &amp; set up phone</button>
@@ -305,8 +315,9 @@ details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(-
   <div class="row"><button class="ghost" data-close>Cancel</button><button class="primary" id="askOk">OK</button></div>
 </div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.js"></script>
+<!-- Pinned versions with fingerprints (SRI): the browser refuses the file if it ever changes. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.js" integrity="sha384-VT1EeewTCEXgndcPMQ0PzV+uVFYjxFIjmAA7s5gcMX9t4Dt5TD+OVQIn7NJWIXn7" crossorigin="anonymous"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>
