@@ -1,6 +1,13 @@
 /* M&P Lock dashboard — Supabase login + the mplock edge function. */
 'use strict';
 
+// Refuse to run inside another site's frame (clickjacking: a hidden frame could trick
+// the owner into pressing Lock, Release or Delete). GitHub Pages can't send frame headers.
+if (window.top !== window.self) {
+  document.documentElement.innerHTML = '<body style="font:16px system-ui;padding:24px">Open M&amp;P Lock directly at hedezfx.github.io/lock/</body>';
+  throw new Error('Framed');
+}
+
 const CFG = window.MPLOCK_CONFIG;
 const FN = CFG.SUPABASE_URL + '/functions/v1/mplock';
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
@@ -54,10 +61,44 @@ $('authSwitch').onclick = () => {
   $('authSwitch').textContent = signupMode ? 'Already have an account? Log in' : 'First time here? Create the owner account';
   $('aErr').textContent = '';
 };
+// Run an action once at a time: a double-tap or a retry while the first request is
+// still running does nothing (stops double payments and duplicate phones).
+let busy = false;
+async function once(btn, fn) {
+  if (busy) return;
+  busy = true; if (btn) btn.disabled = true;
+  try { return await fn(); } finally { busy = false; if (btn) btn.disabled = false; }
+}
+
+$('authForgot').onclick = async () => {
+  const err = $('aErr'), email = $('aEmail').value.trim().toLowerCase();
+  if (!email) { err.className = 'aerr'; err.textContent = 'Type your email above first, then tap Forgot password.'; $('aEmail').focus(); return; }
+  await once($('authForgot'), async () => {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    err.className = error ? 'aerr' : 'aerr aok';
+    err.textContent = error ? (error.message || 'Could not send the email.') : 'If that email has an account, a reset link is on its way. It works once and expires soon.';
+  });
+};
+// Opened from the reset email: ask for the new password straight away.
+sb.auth.onAuthStateChange(async (event) => {
+  if (event !== 'PASSWORD_RECOVERY') return;
+  for (;;) {
+    const pw = await ask({ title: 'Choose a new password', text: 'At least 8 characters.', value: '', password: true, okLabel: 'Save password' });
+    if (pw === null) return;
+    if (pw.length < 8) continue;
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (!error) { banner('Password changed.', true); return; }
+    await ask({ title: 'Could not change the password', text: error.message || 'Try again.', confirmOnly: true, okLabel: 'Try again' });
+  }
+});
+
 $('authForm').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (busy) return;
   const err = $('aErr'); err.className = 'aerr'; err.textContent = '';
-  const email = $('aEmail').value.trim(), password = $('aPass').value;
+  const email = $('aEmail').value.trim().toLowerCase(), password = $('aPass').value;
+  busy = true; $('authBtn').disabled = true;
+  const label = $('authBtn').textContent; $('authBtn').textContent = 'Checking…';
   try {
     if (signupMode) {
       const { error } = await sb.auth.signUp({ email, password });
@@ -68,14 +109,16 @@ $('authForm').addEventListener('submit', async (e) => {
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
     }
+    busy = false; $('authBtn').disabled = false; $('authBtn').textContent = label;
     await start();
   } catch (ex) { err.textContent = ex.message || 'Could not sign in.'; }
+  finally { busy = false; $('authBtn').disabled = false; $('authBtn').textContent = label; }
 });
 $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
 /* ---------- dialogs ---------- */
 let askResolve = null;
-function ask({ title, text, value, multiline, number, confirmOnly, okLabel, html }) {
+function ask({ title, text, value, multiline, number, password, confirmOnly, okLabel, html }) {
   $('askTitle').textContent = title;
   $('askText').textContent = text || '';
   const f = $('askField'); f.innerHTML = html || '';
@@ -83,7 +126,8 @@ function ask({ title, text, value, multiline, number, confirmOnly, okLabel, html
   if (!confirmOnly && !html) {
     input = document.createElement(multiline ? 'textarea' : 'input');
     if (multiline) input.rows = 3;
-    if (number) { input.type = 'number'; input.min = '0'; }
+    if (number) { input.type = 'number'; input.min = '0'; input.inputMode = 'decimal'; }
+    if (password) { input.type = 'password'; input.autocomplete = 'new-password'; input.minLength = 8; }
     input.value = value == null ? '' : value;
     f.appendChild(input);
   }
@@ -109,19 +153,21 @@ async function refresh() {
   catch (e) { banner('Cannot load phones: ' + e.message); }
 }
 
-$('addForm').addEventListener('submit', async (e) => {
+$('addForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const body = Object.fromEntries(new FormData(e.target).entries());
   body.autoLock = e.target.autoLock.checked;
-  try {
-    const j = await api('POST', '/api/devices', body);
-    e.target.reset();
-    $('addForm').graceDays.value = me.graceDays;
-    $('addForm').shopPhone.value = me.shopPhone || '';
-    selected = j.device.id;
-    await refresh();
-    openUsbSetup(j.device.id, j.device.name);
-  } catch (err) { banner(err.message); }
+  return once(e.target.querySelector('button[type=submit]'), async () => {
+    try {
+      const j = await api('POST', '/api/devices', body);
+      e.target.reset();
+      $('addForm').graceDays.value = me.graceDays;
+      $('addForm').shopPhone.value = me.shopPhone || '';
+      selected = j.device.id;
+      await refresh();
+      openUsbSetup(j.device.id, j.device.name);
+    } catch (err) { banner(err.message); }
+  });
 });
 
 $('filters').addEventListener('click', (e) => {
@@ -132,7 +178,7 @@ $('filters').addEventListener('click', (e) => {
 });
 
 /* ---------- settings + app upload ---------- */
-$('saveSet').onclick = async () => {
+$('saveSet').onclick = () => once($('saveSet'), async () => {
   try {
     const frp = $('setFrp').value.replace(/\s+/g, '');
     if (frp && !/^[0-9]{6,30}$/.test(frp)) { banner('The Google account ID is a long number, not the email address. See the guide.'); return; }
@@ -141,8 +187,8 @@ $('saveSet').onclick = async () => {
     me.lateGraceDays = Number($('setLate').value); me.frpAccount = frp;
     banner('Settings saved.', true);
   } catch (e) { banner(e.message); }
-};
-$('upApk').onclick = async () => {
+});
+$('upApk').onclick = () => once($('upApk'), async () => {
   const file = $('apkFile').files[0];
   if (!file) { banner('Choose the app file first.'); return; }
   try {
@@ -162,7 +208,7 @@ $('upApk').onclick = async () => {
     banner('App uploaded. QR setup is ready.', true);
     renderAppState();
   } catch (e) { banner('Upload failed: ' + e.message); }
-};
+});
 // Minimal ZIP reader: find app-debug.apk (stored or deflated) inside the GitHub zip.
 async function apkFromZip(file) {
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -267,10 +313,13 @@ function dueLine(d) {
   return `<div class="due">Next: <b>${money(p.nextDueAmount)}</b> due <b>${fdate(p.nextDueAt)}</b> · ${money(d.planAmount)} ${EVERY[d.planEveryDays] || ''} · ${auto}</div>`;
 }
 
-$('list').addEventListener('click', async (e) => {
+$('list').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-a]'); if (!b) return;
   const d = devices.find((x) => x.id === b.dataset.id); if (!d) return;
   selected = d.id;
+  return once(b, () => deviceAction(b, d));
+});
+async function deviceAction(b, d) {
   try {
     switch (b.dataset.a) {
       case 'lock': {
@@ -329,7 +378,7 @@ $('list').addEventListener('click', async (e) => {
     }
     await refresh();
   } catch (err) { banner(err.message); }
-});
+}
 
 const SHIELD = '<svg viewBox="-8 -8 114 140" aria-hidden="true"><path d="M49,0 L98,18 L98,61 C98,93 76.5,114 49,124 C21.5,114 0,93 0,61 L0,18 Z" fill="#1C54F2" stroke="#fff" stroke-width="7" stroke-linejoin="round"/><path d="M28,44 L46.5,60 L28,76 M54,77 L72.5,77" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function clock() { const n = new Date(); return n.getHours().toString().padStart(2, '0') + ':' + n.getMinutes().toString().padStart(2, '0'); }
