@@ -702,7 +702,7 @@ async function start() {
   try {
     me = await api('GET', '/api/me');
     $('who').innerHTML = `${esc(me.email)}<br>${me.team ? 'iSell ' + esc(me.role) : esc(me.company.name)}`;
-    $('hdrSub').textContent = me.team ? 'iSell team · Powered by M&P Developers' : me.company.name + ' · Powered by M&P Developers';
+    $('hdrSub').textContent = (me.team ? 'iSell team' : me.company.name) + ' ·';
     $('pausedBanner').hidden = !paused();
     $('addPhonePanel').hidden = !isTeam(); $('addCompanyPanel').hidden = !isAdmin();
     $('fCompany').hidden = !isTeam();
