@@ -16,6 +16,9 @@ const PACKAGE = 'com.isell.protect';
 const ADMIN = PACKAGE + '/com.mpdevelopers.lock.AdminReceiver';
 
 let me = null, devices = [], companies = [], tab = 'phones';
+// The iSell team can type "admin" instead of the admin email. Client companies use their email.
+const ADMIN_EMAIL = 'isellinnovations2@gmail.com';
+const loginEmail = () => { const v = $('aEmail').value.trim().toLowerCase(); return v === 'admin' ? ADMIN_EMAIL : v; };
 
 /* ---------- helpers ---------- */
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -64,7 +67,7 @@ $('authForm').addEventListener('submit', async (e) => {
   const err = $('aErr'); err.className = 'aerr'; err.textContent = '';
   busy = true; $('authBtn').disabled = true;
   try {
-    const { error } = await sb.auth.signInWithPassword({ email: $('aEmail').value.trim().toLowerCase(), password: $('aPass').value });
+    const { error } = await sb.auth.signInWithPassword({ email: loginEmail(), password: $('aPass').value });
     if (error) throw error;
     busy = false; $('authBtn').disabled = false;
     await start();
@@ -72,8 +75,8 @@ $('authForm').addEventListener('submit', async (e) => {
   finally { busy = false; $('authBtn').disabled = false; }
 });
 $('authForgot').onclick = async () => {
-  const err = $('aErr'), email = $('aEmail').value.trim().toLowerCase();
-  if (!email) { err.className = 'aerr'; err.textContent = 'Type your email first, then tap Forgot password.'; $('aEmail').focus(); return; }
+  const err = $('aErr'), email = loginEmail();
+  if (!email) { err.className = 'aerr'; err.textContent = 'Type your email (or admin) first, then tap Forgot password.'; $('aEmail').focus(); return; }
   await once($('authForgot'), async () => {
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
     err.className = error ? 'aerr' : 'aerr ok';
