@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>iSell Gadget Protection</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self' https://fwifvwthvgmcclrwdtqm.supabase.co wss://fwifvwthvgmcclrwdtqm.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --deep:#2B0F69;--brand:#5E2FAF;--bright:#8A5CE6;--soft:#E3D8FF;--brand-soft:#efe8fd;
+  --bg:#f6f3fd;--surface:#fff;--ink:#1c1433;--muted:#6b6487;--line:#e5dff3;
+  --bad:#b42318;--bad-soft:#fde8e6;--ok:#17845a;--ok-soft:#e3f5ec;--warn:#a86411;--warn-soft:#fdf1dc;
+  --display:"Sora",system-ui,sans-serif;--body:"Manrope",system-ui,"Segoe UI",sans-serif;
+  --shadow:0 1px 2px rgba(43,15,105,.06),0 10px 28px rgba(43,15,105,.08);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;border:none;border-radius:10px;padding:10px 14px;font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
+button:active{transform:scale(.98)} button:disabled{opacity:.55;cursor:not-allowed}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--bright);outline-offset:2px}
+.primary{background:var(--brand);color:#fff}.primary:hover{background:var(--deep)}
+.ghost{background:#fff;border:1px solid var(--line);color:var(--muted)}.ghost:hover{border-color:var(--brand);color:var(--brand)}
+.danger{background:var(--bad);color:#fff}.okb{background:var(--ok);color:#fff}
+label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:700}
+input,select,textarea{background:#fbfaff;border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--ink);font-size:14px;font-family:inherit;width:100%}
+.loading{min-height:100vh;display:grid;place-items:center;color:var(--muted)}
+/* login */
+.auth{min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 80% 0%,#8A5CE6 0,#2B0F69 60%);padding:20px}
+.authcard{background:#fff;border-radius:20px;padding:26px 24px;width:100%;max-width:380px;display:grid;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.authtop{display:flex;align-items:center;gap:12px}
+.authtop img{height:64px}
+.authtop .dot{width:96px;margin:-30px -6px -10px auto}
+.authcard h2{margin:0;font-family:var(--display);font-size:19px;color:var(--deep)}
+.authcard p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.5}
+.aerr{color:var(--bad);font-size:13px;min-height:18px} .aerr.ok{color:var(--ok)}
+.linkbtn{background:none;padding:2px 0;color:var(--brand);font-weight:700;font-size:13px;text-decoration:underline;text-underline-offset:3px;justify-self:start}
+.legal{font-size:12px;color:var(--muted);margin:0}.legal a{color:inherit}
+/* app */
+header{background:var(--deep);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+header img{height:34px}
+header .t{font-family:var(--display);font-weight:700;font-size:16px;line-height:1.1}
+header .t small{display:block;color:var(--soft);font-weight:500;font-size:11px;font-family:var(--body)}
+header .who{margin-left:auto;color:var(--soft);font-size:12px;text-align:right}
+@media(max-width:560px){header .t small,header .who{display:none}}
+header .out{background:transparent;border:1px solid rgba(227,216,255,.45);color:#fff;padding:6px 12px;font-size:12px}
+.wrap{max-width:1150px;margin:0 auto;padding:20px;display:grid;gap:18px}
+.banner{border-radius:12px;padding:12px 14px;font-size:13.5px;line-height:1.5}
+.banner.err{background:var(--bad-soft);color:var(--bad);border:1px solid #f5c2bd}
+.banner.ok{background:var(--ok-soft);color:var(--ok);border:1px solid #bfe6d2}
+.banner.warn{background:var(--warn-soft);color:var(--warn);border:1px solid #f1d7a8}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat .k{font-size:12px;color:var(--muted);font-weight:700}
+.stat .v{font-family:var(--display);font-weight:700;font-size:28px;margin-top:4px;color:var(--deep)}
+.stat .n{font-size:12px;color:var(--muted)}
+.stat.bad .v{color:var(--bad)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{background:#fff;border:1px solid var(--line);color:var(--muted)}
+.tabs button.on{background:var(--deep);border-color:var(--deep);color:#fff}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.panel h2{margin:0 0 14px;font-family:var(--display);font-size:16px;color:var(--deep)}
+.panel h2 .s{color:var(--muted);font-weight:500;font-size:13px;margin-left:6px;font-family:var(--body)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:860px){.grid{grid-template-columns:1fr 1fr}} @media(max-width:520px){.grid{grid-template-columns:1fr}}
+.grid .full{grid-column:1/-1}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bar select,.bar input{width:auto;min-width:150px;padding:8px 10px}
+.list{display:grid;gap:10px}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:22px}
+.card{border:1px solid var(--line);background:#fdfcff;border-radius:14px;padding:14px;display:grid;gap:8px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.nm{font-weight:800;font-size:15px}
+.mt{color:var(--muted);font-size:12.5px;margin-top:2px}
+.seen{font-size:12px;color:var(--muted)} .seen.stale{color:var(--bad)}
+.badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:800;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px}
+.badge.active{background:var(--ok-soft);color:var(--ok)} .badge.locked{background:var(--bad-soft);color:var(--bad)}
+.badge.released{background:var(--brand-soft);color:var(--brand)} .badge.paused{background:var(--warn-soft);color:var(--warn)}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.acts button{padding:7px 11px;font-size:12px}
+.loc{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.loc svg{width:12px;height:12px;flex:none} .loc b{color:var(--ink)} .loc .warn,.loc.warn{color:var(--bad)} .loc .pend{color:var(--brand);font-weight:700}
+.money{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted)} .money b{color:var(--ink)} .money .due{color:var(--bad)}
+.foot{color:var(--muted);font-size:12.5px;text-align:center;padding:4px 0 90px}
+.foot b{color:var(--deep)}
+/* modals */
+.modal{position:fixed;inset:0;background:rgba(28,20,51,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:30}
+.modal.open{display:flex}
+.box{background:#fff;border-radius:18px;padding:22px;max-width:380px;width:100%;box-shadow:var(--shadow);max-height:92vh;overflow:auto}
+.box.wide{max-width:680px}
+.box h3{margin:0 0 6px;font-size:17px;font-family:var(--display);color:var(--deep)}
+.box p{color:var(--muted);font-size:13.5px;line-height:1.5;margin:0 0 12px}
+.box .lead{color:var(--ink)}
+.row{display:flex;gap:8px;margin-top:14px} .row button{flex:1}
+.hist{max-height:240px;overflow:auto;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.hist div,.hist button{display:flex;justify-content:space-between;gap:10px;padding:5px 2px}
+.secret{font-family:ui-monospace,Consolas,monospace;background:var(--brand-soft);border-radius:10px;padding:10px;font-size:15px;word-break:break-all;color:var(--deep)}
+#qrbox,#setupBox,#usbQR{display:flex;justify-content:center;margin:8px 0}
+canvas{background:#fff;border-radius:10px;border:1px solid var(--line);max-width:100%}
+#qrtext{background:#fbfaff;border:1px solid var(--line);border-radius:10px;padding:9px;font-size:10px;color:var(--muted);word-break:break-all;font-family:ui-monospace,Consolas,monospace}
+.steps{margin:6px 0 0;padding:0;list-style:none;counter-reset:s;display:grid;gap:14px}
+.steps>li{counter-increment:s;display:grid;grid-template-columns:30px 1fr;gap:12px;font-size:13.5px;line-height:1.55}
+.steps>li::before{content:counter(s);width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:800}
+.steps b.h{display:block;font-family:var(--display);font-size:14.5px;color:var(--deep)}
+.steps .note{color:var(--muted);font-size:12.5px;margin-top:4px}
+.tap{background:var(--brand-soft);border-radius:6px;padding:1px 6px;font-weight:700;white-space:nowrap}
+.map{height:330px;border-radius:12px;border:1px solid var(--line);background:#ece6fb;margin:4px 0 12px;z-index:0}
+.mapfail{height:100%;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:16px}
+.locbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.locbar label{flex-direction:row;align-items:center;gap:6px;margin-left:auto} .locbar select{width:auto;padding:7px 8px}
+a.btnlink{display:inline-flex;align-items:center;text-decoration:none;border-radius:10px;padding:10px 14px;font-weight:700;font-size:13px}
+.locnote{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.5} .locnote.pend{color:var(--brand);font-weight:700} .locnote.warn{color:var(--bad)}
+.tag{background:var(--brand-soft);color:var(--brand);border-radius:10px;padding:0 7px;font-size:11px;font-weight:800;margin-left:6px}
+#locHist button{all:unset;display:flex;justify-content:space-between;gap:10px;width:100%;padding:6px 4px;border-radius:6px;cursor:pointer;box-sizing:border-box}
+#locHist button:hover{background:var(--brand-soft)}
+/* Dot */
+#dotBtn{position:fixed;right:18px;bottom:18px;width:68px;height:68px;border-radius:50%;padding:0;background:#fff;box-shadow:0 10px 30px rgba(43,15,105,.35);z-index:25;overflow:hidden;border:3px solid var(--bright)}
+#dotBtn{display:grid;place-items:center}#dotBtn .dothd{width:58px;height:58px}
+#dotPanel{position:fixed;right:18px;bottom:96px;width:min(380px,calc(100vw - 24px));height:min(560px,calc(100vh - 120px));background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(28,20,51,.35);display:flex;flex-direction:column;overflow:hidden;z-index:26}
+.dothead{background:var(--deep);color:#fff;display:flex;align-items:center;gap:10px;padding:10px 12px}
+.dothead .av{width:40px;height:40px}
+.dothead b{font-family:var(--display);font-size:15px}.dothead small{display:block;color:var(--soft);font-size:11px}
+.dothead button{margin-left:auto;background:transparent;color:#fff;border:1px solid rgba(227,216,255,.45);padding:5px 10px}
+#dotLog{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.msg{max-width:85%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}
+.msg.me{align-self:flex-end;background:var(--brand);color:#fff;border-bottom-right-radius:4px}
+.msg.dot{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.act{align-self:flex-start;background:var(--warn-soft);border:1px solid #f1d7a8;display:grid;gap:8px}
+.dotin{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+.dotin input{flex:1}
+.hello{display:flex;gap:10px;align-items:center}.hello .fig{width:56px;flex:none}
+/* Dot in 3D: the official renders, floating and turning with a live shadow */
+.dot3d{display:inline-block;position:relative;width:100%;perspective:700px;animation:dotPop .5s cubic-bezier(.2,1.6,.4,1) both}
+.dot3d img{display:block;width:100%;height:auto;transform-origin:50% 92%;filter:drop-shadow(0 8px 10px rgba(43,15,105,.22));animation:dotIdle 4.2s ease-in-out infinite;will-change:transform;user-select:none}
+.dot3d .sh{position:absolute;left:22%;right:22%;bottom:-2%;height:7%;border-radius:50%;background:radial-gradient(closest-side,rgba(43,15,105,.32),rgba(43,15,105,0));animation:dotShadow 4.2s ease-in-out infinite}
+.dot3d.m-hello img,.dot3d.m-main img{animation:dotWave 3.6s ease-in-out infinite}
+.dot3d.m-thinking img{animation:dotThink 2.4s ease-in-out infinite}
+.dot3d.m-thinking .sh{animation:dotShadow 2.4s ease-in-out infinite}
+.dot3d.m-paid img{animation:dotJump 1.1s cubic-bezier(.3,.7,.4,1) infinite}
+.dot3d.m-paid .sh{animation:dotJumpSh 1.1s cubic-bezier(.3,.7,.4,1) infinite}
+.dot3d.m-oops img{animation:dotShake .6s ease-in-out 2,dotIdle 4.2s ease-in-out 1.2s infinite}
+@keyframes dotPop{0%{transform:scale(.6) translateY(14px)}70%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes dotIdle{0%,100%{transform:translateY(0) rotateY(-16deg) rotateZ(-1.5deg)}25%{transform:translateY(-7%) rotateY(0) rotateZ(0)}50%{transform:translateY(0) rotateY(16deg) rotateZ(1.5deg)}75%{transform:translateY(-7%) rotateY(0) rotateZ(0)}}
+@keyframes dotWave{0%,100%{transform:translateY(0) rotateY(-12deg) rotateZ(-3deg)}20%{transform:translateY(-5%) rotateY(-4deg) rotateZ(4deg)}40%{transform:translateY(-6%) rotateY(4deg) rotateZ(-4deg)}60%{transform:translateY(-3%) rotateY(12deg) rotateZ(3deg)}80%{transform:translateY(-6%) rotateY(4deg) rotateZ(0)}}
+@keyframes dotThink{0%,100%{transform:translateY(0) rotateY(-20deg) rotateZ(-5deg)}50%{transform:translateY(-4%) rotateY(20deg) rotateZ(5deg)}}
+@keyframes dotJump{0%,100%{transform:translateY(0) scale(1.06,.92)}15%{transform:translateY(0) scale(.94,1.08)}45%{transform:translateY(-18%) scale(1,1) rotateY(180deg)}75%{transform:translateY(0) scale(1.05,.95) rotateY(360deg)}}
+@keyframes dotJumpSh{0%,100%,75%{transform:scale(1);opacity:1}45%{transform:scale(.55);opacity:.45}}
+@keyframes dotShake{0%,100%{transform:translateX(0) rotateZ(0)}20%{transform:translateX(-6%) rotateZ(-6deg)}40%{transform:translateX(5%) rotateZ(5deg)}60%{transform:translateX(-4%) rotateZ(-3deg)}80%{transform:translateX(3%) rotateZ(2deg)}}
+@keyframes dotShadow{0%,50%,100%{transform:scale(1);opacity:1}25%,75%{transform:scale(.8);opacity:.6}}
+.dothd{display:block;width:100%;height:100%;perspective:500px;overflow:visible}
+.dothd img{display:block;width:100%;height:100%;object-fit:contain;transform-origin:50% 60%;animation:dotHead 5s ease-in-out infinite}
+@keyframes dotHead{0%,100%{transform:translateY(4%) rotateY(-14deg)}40%{transform:translateY(-3%) rotateY(14deg)}88%{transform:translateY(4%) rotateY(-14deg) scaleY(1)}91%{transform:translateY(4%) rotateY(-14deg) scaleY(.86)}94%{transform:translateY(4%) rotateY(-14deg) scaleY(1)}}
+.dotstage{width:150px;margin:0 auto}
+.empty .dotstage{width:96px;margin-bottom:8px}
+@media (prefers-reduced-motion:reduce){.dot3d,.dot3d img,.dot3d .sh,.dothd img{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="loading" id="loading">Loading…</div>
+
+<!-- LOGIN -->
+<div class="auth" id="auth" hidden>
+  <form class="authcard" id="authForm">
+    <div class="authtop"><img id="logoA" alt="iSell"><div class="dot" id="dotLogin"></div></div>
+    <h2>Gadget Protection</h2>
+    <p>Log in with the email and password iSell gave you.</p>
+    <label>Email<input id="aEmail" type="email" autocomplete="username" required></label>
+    <label>Password<input id="aPass" type="password" autocomplete="current-password" minlength="8" required></label>
+    <button class="linkbtn" type="button" id="authForgot">Forgot password?</button>
+    <button class="primary" type="submit" id="authBtn">Log in</button>
+    <div class="aerr" id="aErr" role="status" aria-live="polite"></div>
+    <p class="legal">By logging in you agree to the <a href="../../terms.html">Terms of Use</a> and <a href="../../privacy.html">Privacy Policy</a>. Powered by M&amp;P Developers.</p>
+  </form>
+</div>
+
+<!-- APP -->
+<div id="app" hidden>
+<header>
+  <img id="logoH" alt="iSell">
+  <div class="t">Gadget Protection<small id="hdrSub">Powered by M&amp;P Developers</small></div>
+  <div class="who" id="who"></div>
+  <button class="out" id="logout">Log out</button>
+</header>
+<div class="wrap">
+  <div class="banner" id="banner" hidden></div>
+  <div class="banner warn" id="pausedBanner" hidden>Your iSell service is <b>paused</b> because of an unpaid bill. You can still see your phones and your bill, but locking and locating are switched off until it is paid. Your phones stay protected.</div>
+  <div class="stats" id="stats"></div>
+  <div class="tabs" id="tabs"></div>
+
+  <!-- phones -->
+  <section id="tabPhones" class="tab">
+    <div class="panel" id="addPhonePanel" hidden>
+      <h2>Protect a new phone</h2>
+      <form id="addForm" class="grid">
+        <label>Company<select name="companyId" id="addCompany" required></select></label>
+        <label>Employee name<input name="employee" required autocomplete="off" placeholder="Mary Phiri"></label>
+        <label>Employee phone<input name="employeePhone" type="tel" inputmode="tel" autocomplete="off" placeholder="+260…"></label>
+        <label>Device model<input name="model" placeholder="Samsung Galaxy A15"></label>
+        <label>IMEI (optional)<input name="imei" inputmode="numeric" autocomplete="off" maxlength="17"></label>
+        <label>Asset tag (optional)<input name="assetTag" autocomplete="off" placeholder="ACME-0042"></label>
+        <label>Contact number on lock screen (blank = company's)<input name="contactPhone" type="tel" inputmode="tel" autocomplete="off"></label>
+        <label>Offline days before self-lock<input name="graceDays" type="number" min="1" max="60" value="7"></label>
+        <div class="full"><button class="primary" type="submit">Add &amp; set up phone</button></div>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Phones <span class="s" id="phoneCount"></span></h2>
+      <div class="bar">
+        <select id="fCompany" aria-label="Company"></select>
+        <select id="fStatus" aria-label="Status"><option value="">All statuses</option><option value="active">Active</option><option value="locked">Locked</option><option value="released">Released</option></select>
+        <input id="fText" type="search" placeholder="Search name, model, IMEI…" aria-label="Search phones">
+      </div>
+      <div id="phoneList" class="list"></div>
+    </div>
+  </section>
+
+  <!-- companies (iSell team) -->
+  <section id="tabCompanies" class="tab" hidden>
+    <div class="panel" id="addCompanyPanel" hidden>
+      <h2>Add a client company</h2>
+      <form id="companyForm" class="grid">
+        <label>Company name<input name="name" required autocomplete="off" placeholder="Acme Zambia Ltd"></label>
+        <label>Contact phone (shown on locked phones)<input name="contactPhone" type="tel" inputmode="tel" autocomplete="off"></label>
+        <label>Email<input name="email" type="email" autocomplete="off"></label>
+        <label>Installation fee per phone (K)<input name="setupFee" type="number" min="0" inputmode="decimal" placeholder="default"></label>
+        <label>Monthly fee per phone (K)<input name="monthlyFee" type="number" min="0" inputmode="decimal" placeholder="default"></label>
+        <div style="display:flex;align-items:flex-end"><button class="primary" type="submit" style="width:100%">Add company</button></div>
+      </form>
+    </div>
+    <div class="panel"><h2>Client companies <span class="s" id="companyCount"></span></h2><div id="companyList" class="list"></div></div>
+  </section>
+
+  <!-- bill (company view) -->
+  <section id="tabBill" class="tab" hidden>
+    <div class="panel"><h2>Our iSell bill</h2><div id="ownBill"></div></div>
+  </section>
+
+  <!-- settings (iSell admin) -->
+  <section id="tabSettings" class="tab" hidden>
+    <div class="panel">
+      <h2>Settings <span class="s" id="appState"></span></h2>
+      <div class="grid">
+        <label>iSell contact phone (fallback on locked phones)<input id="sPhone" type="tel" inputmode="tel"></label>
+        <label>Offline days before a phone self-locks<input id="sGrace" type="number" min="1" max="60"></label>
+        <label>Days after a charge before it counts as overdue<input id="sBillGrace" type="number" min="0" max="90"></label>
+        <label>Default installation fee per phone (K)<input id="sSetup" type="number" min="0" inputmode="decimal"></label>
+        <label>Default monthly fee per phone (K)<input id="sMonthly" type="number" min="0" inputmode="decimal"></label>
+        <label>Reset protection: Google account ID (numbers)<input id="sFrp" inputmode="numeric"></label>
+        <label class="full">iSell team WhatsApp numbers for Dot (comma-separated, e.g. 260977123456) <span id="waState"></span><input id="sTeamWa" inputmode="tel" placeholder="260977123456, 260966654321"></label>
+        <label class="full">iSell Protect app file (.apk, or the isell-release-apk .zip from GitHub)<input id="apkFile" type="file" accept=".apk,.zip,application/zip"></label>
+        <div class="full" style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="saveSet" type="button">Save settings</button><button class="primary" id="upApk" type="button">Upload app file</button></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot"><b>iSell Gadget Protection</b> · by iSell Innovations · <b>Powered by M&amp;P Developers</b></div>
+</div>
+</div>
+
+<!-- Dot -->
+<button id="dotBtn" type="button" aria-label="Talk to Dot" hidden></button>
+<div id="dotPanel" hidden role="dialog" aria-label="Dot, the iSell assistant">
+  <div class="dothead"><div class="av" id="dotAv"></div><div><b>Dot</b><small>iSell assistant · Powered by M&amp;P Developers</small></div><button type="button" id="dotClose">Close</button></div>
+  <div id="dotLog" aria-live="polite"></div>
+  <form class="dotin" id="dotForm"><input id="dotIn" autocomplete="off" maxlength="1500" placeholder="Ask Dot… e.g. where is Mary's phone?"><button class="primary" type="submit">Send</button></form>
+</div>
+
+<!-- location -->
+<div class="modal" id="locModal"><div class="box wide">
+  <h3>Location — <span id="locName"></span></h3>
+  <p class="lead" id="locSummary"></p>
+  <div id="locMap" class="map" role="region" aria-label="Map of the phone's location"></div>
+  <div class="locbar">
+    <button class="primary" id="locNow" type="button">Locate now</button>
+    <a class="ghost btnlink" id="locGmaps" target="_blank" rel="noopener noreferrer" hidden>Open in Google Maps</a>
+    <label>Show<select id="locDays"><option value="1">Last 24 hours</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
+  </div>
+  <div class="locnote" id="locNote" role="status" aria-live="polite"></div>
+  <div class="hist" id="locHist"></div>
+  <p class="locnote">Phones report where they are every 2 hours. A switched-off phone can't report, and Locate now needs signal. History is kept 90 days and deleted when a phone is released.</p>
+  <div class="row"><button class="primary" data-close>Close</button></div>
+</div></div>
+
+<!-- USB setup -->
+<div class="modal" id="usbModal"><div class="box wide">
+  <h3>Set up by USB cable — <span id="usbName"></span></h3>
+  <p class="lead">Works on every phone, including new Samsung phones. Use a Windows computer and a USB data cable. About 5 minutes.</p>
+  <ol class="steps">
+    <li><div><b class="h">Start the phone fresh</b>Use a new or factory-reset phone. Skip the Google and Samsung accounts during setup. Wi-Fi and a screen PIN are fine.</div></li>
+    <li><div><b class="h">Turn on USB debugging</b>Settings → About phone (Samsung: Software information) → tap <span class="tap">Build number</span> 7 times. Then Developer options → turn on <span class="tap">USB debugging</span>.</div></li>
+    <li><div><b class="h">Plug the phone in</b>Use a data cable. On the phone tick <span class="tap">Always allow</span> and tap <span class="tap">Allow</span>.</div></li>
+    <li><div><b class="h">Download and run the installer</b>Made for <b id="usbName2"></b>.
+      <div style="margin-top:8px"><button class="primary" id="usbDl" type="button">Download installer</button></div>
+      <div class="note">Open it. If Windows says "Windows protected your PC", click More info → Run anyway. Wait for the green DONE.</div></div></li>
+    <li><div><b class="h">Link the phone</b>On the phone, scan this QR with the Camera → Copy. Open iSell Protect → paste → Enroll.
+      <div id="usbQR"></div><button class="ghost" id="usbCopy" type="button">Copy code</button><div class="note">Keep this code private — it is the phone's key.</div></div></li>
+    <li><div><b class="h">Check it worked</b>The phone's card shows "checked in just now" and the app says Protection: FULL.</div></li>
+  </ol>
+  <div class="row"><button class="ghost" id="usbToQR" type="button">Older phone? Use QR setup</button><button class="primary" data-close>Close</button></div>
+</div></div>
+
+<div class="modal" id="setupModal"><div class="box" style="text-align:center;max-width:420px">
+  <h3>Set up by QR — <span id="setupName"></span></h3>
+  <p>Older phones (Android 13 and below). New or factory-reset phone, no accounts. On the first welcome screen tap the same spot 6 times, connect Wi-Fi, then scan.</p>
+  <div id="setupBox"></div>
+  <div class="row"><button class="primary" data-close>Done</button></div>
+</div></div>
+
+<div class="modal" id="qrModal"><div class="box" style="text-align:center">
+  <h3>Setup code</h3>
+  <p>For a phone that already has iSell Protect: open the app and paste this code. Keep it private.</p>
+  <div id="qrbox"></div><div id="qrtext"></div>
+  <div class="row"><button class="ghost" id="copyBtn">Copy code</button><button class="primary" data-close>Done</button></div>
+</div></div>
+
+<div class="modal" id="askModal"><div class="box">
+  <h3 id="askTitle"></h3>
+  <p id="askText"></p>
+  <div id="askField"></div>
+  <div class="row"><button class="ghost" data-close id="askCancel">Cancel</button><button class="primary" id="askOk">OK</button></div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.js" integrity="sha384-VT1EeewTCEXgndcPMQ0PzV+uVFYjxFIjmAA7s5gcMX9t4Dt5TD+OVQIn7NJWIXn7" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="../logo.js"></script>
+<script src="config.js"></script>
+<script src="dot.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
