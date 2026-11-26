@@ -4,4 +4,6 @@
 window.ISP_CONFIG = {
   SUPABASE_URL: "https://fwifvwthvgmcclrwdtqm.supabase.co",
   SUPABASE_KEY: "sb_publishable_sAafIVB3Kv9PIgzX9NRoHA_x_HI5DYQ",
+  // Typing "admin" in the login box uses this email (the owner's iSell admin account).
+  ADMIN_EMAIL: "liluzzasky@gmail.com",
 };

@@ -17,8 +17,8 @@ const ADMIN = PACKAGE + '/com.mpdevelopers.lock.AdminReceiver';
 
 let me = null, devices = [], companies = [], tab = 'phones';
 // The iSell team can type "admin" instead of the admin email. Client companies use their email.
-const ADMIN_EMAIL = 'isellinnovations2@gmail.com';
-const loginEmail = () => { const v = $('aEmail').value.trim().toLowerCase(); return v === 'admin' ? ADMIN_EMAIL : v; };
+const ADMIN_EMAIL = String(CFG.ADMIN_EMAIL || '').toLowerCase(); // set in config.js
+const loginEmail = () => { const v = $('aEmail').value.trim().toLowerCase(); return v === 'admin' && ADMIN_EMAIL ? ADMIN_EMAIL : v; };
 
 /* ---------- helpers ---------- */
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
