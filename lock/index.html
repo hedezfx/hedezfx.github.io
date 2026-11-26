@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <title>M&amp;P Lock — Admin</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://fwifvwthvgmcclrwdtqm.supabase.co wss://fwifvwthvgmcclrwdtqm.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self' https://fwifvwthvgmcclrwdtqm.supabase.co wss://fwifvwthvgmcclrwdtqm.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
 <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;700;800&family=Red+Hat+Text:wght@400;500;600&family=Red+Hat+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -152,6 +153,26 @@ details.help summary{cursor:pointer;font-weight:700}
 details.help table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
 details.help td{border-top:1px solid var(--line);padding:7px 6px;vertical-align:top}
 details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(--alert);width:42%}
+/* location */
+.loc{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.loc svg{width:12px;height:12px;flex:none}
+.loc b{color:var(--ink);font-weight:600}
+.loc.warn,.loc .warn{color:var(--alert)}
+.loc .pend{color:var(--blue);font-weight:600}
+.map{height:340px;border-radius:12px;border:1px solid var(--line);background:#E6ECF8;margin:4px 0 12px;z-index:0}
+@media(max-width:520px){.map{height:280px}}
+.mapfail{height:100%;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:16px}
+.locbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.locbar label{flex-direction:row;align-items:center;gap:6px;margin-left:auto}
+.locbar select{padding:7px 8px}
+a.btnlink{display:inline-flex;align-items:center;text-decoration:none;border-radius:9px;padding:10px 14px;font-weight:600;font-size:13px}
+.locnote{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+.locnote.pend{color:var(--blue);font-weight:600}
+.locnote.warn{color:var(--alert)}
+#locHist{max-height:220px}
+#locHist button{all:unset;display:flex;justify-content:space-between;gap:10px;width:100%;padding:6px 4px;border-radius:6px;cursor:pointer;box-sizing:border-box}
+#locHist button:hover,#locHist button:focus-visible{background:#EEF3FD}
+#locHist .tag{background:#EEF3FD;color:var(--blue);border-radius:10px;padding:0 7px;font-size:11px;font-weight:700;margin-left:6px}
 .qrlink{background:none;border:none;color:var(--blue);padding:0;font-size:12.5px;text-decoration:underline;font-weight:600}
 </style>
 </head>
@@ -307,6 +328,22 @@ details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(-
   <div class="row"><button class="ghost" id="copyBtn">Copy code</button><button class="primary" data-close>Done</button></div>
 </div></div>
 
+<!-- phone location -->
+<div class="modal" id="locModal"><div class="box wide">
+  <h3>Location — <span id="locName"></span></h3>
+  <p class="lead" id="locSummary"></p>
+  <div id="locMap" class="map" role="region" aria-label="Map of the phone's location"></div>
+  <div class="locbar">
+    <button class="primary" id="locNow" type="button">Locate now</button>
+    <a class="ghost btnlink" id="locGmaps" target="_blank" rel="noopener noreferrer" hidden>Open in Google Maps</a>
+    <label>Show<select id="locDays"><option value="1">Last 24 hours</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
+  </div>
+  <div class="locnote" id="locNote" role="status" aria-live="polite"></div>
+  <div class="hist" id="locHist"></div>
+  <p class="locnote">The phone reports where it is every 2 hours. A switched-off phone can't report, and Locate now needs the phone to have signal. History is kept 90 days and deleted when a phone is released.</p>
+  <div class="row"><button class="primary" data-close>Close</button></div>
+</div></div>
+
 <!-- generic input / confirm dialog -->
 <div class="modal" id="askModal"><div class="box">
   <h3 id="askTitle"></h3>
@@ -318,6 +355,7 @@ details.help td:first-child{font-family:var(--mono);font-size:11.5px;color:var(-
 <!-- Pinned versions with fingerprints (SRI): the browser refuses the file if it ever changes. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js" integrity="sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.js" integrity="sha384-VT1EeewTCEXgndcPMQ0PzV+uVFYjxFIjmAA7s5gcMX9t4Dt5TD+OVQIn7NJWIXn7" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>
