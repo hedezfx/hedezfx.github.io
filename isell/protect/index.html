@@ -7,6 +7,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self' https://fwifvwthvgmcclrwdtqm.supabase.co wss://fwifvwthvgmcclrwdtqm.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
+<link rel="icon" href="img/dot-head.webp" type="image/webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
@@ -42,6 +43,7 @@ input,select,textarea{background:#fbfaff;border:1px solid var(--line);border-rad
 .aerr{color:var(--bad);font-size:13px;min-height:18px} .aerr.ok{color:var(--ok)}
 .linkbtn{background:none;padding:2px 0;color:var(--brand);font-weight:700;font-size:13px;text-decoration:underline;text-underline-offset:3px;justify-self:start}
 .legal{font-size:12px;color:var(--muted);margin:0}.legal a{color:inherit}
+.mp{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;vertical-align:middle}.dothead small.mp{display:flex}.mp img{height:1.5em;width:auto;display:block}
 /* app */
 header{background:var(--deep);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
 header img{height:34px}
@@ -171,12 +173,12 @@ a.btnlink{display:inline-flex;align-items:center;text-decoration:none;border-rad
     <div class="authtop"><img id="logoA" alt="iSell"><div class="dot" id="dotLogin"></div></div>
     <h2>Gadget Protection</h2>
     <p>Log in with the email and password iSell gave you.</p>
-    <label>Email<input id="aEmail" type="email" autocomplete="username" required></label>
+    <label>Email (iSell team: admin)<input id="aEmail" type="text" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="username" required></label>
     <label>Password<input id="aPass" type="password" autocomplete="current-password" minlength="8" required></label>
     <button class="linkbtn" type="button" id="authForgot">Forgot password?</button>
     <button class="primary" type="submit" id="authBtn">Log in</button>
     <div class="aerr" id="aErr" role="status" aria-live="polite"></div>
-    <p class="legal">By logging in you agree to the <a href="../../terms.html">Terms of Use</a> and <a href="../../privacy.html">Privacy Policy</a>. Powered by M&amp;P Developers.</p>
+    <p class="legal">By logging in you agree to the <a href="../../terms.html">Terms of Use</a> and <a href="../../privacy.html">Privacy Policy</a>. <span class="mp"><img src="mp-logo.svg" alt="">Powered by M&amp;P Developers</span></p>
   </form>
 </div>
 
@@ -184,7 +186,7 @@ a.btnlink{display:inline-flex;align-items:center;text-decoration:none;border-rad
 <div id="app" hidden>
 <header>
   <img id="logoH" alt="iSell">
-  <div class="t">Gadget Protection<small id="hdrSub">Powered by M&amp;P Developers</small></div>
+  <div class="t">Gadget Protection<small><span id="hdrSub"></span> <span class="mp"><img src="mp-logo.svg" alt="">Powered by M&amp;P Developers</span></small></div>
   <div class="who" id="who"></div>
   <button class="out" id="logout">Log out</button>
 </header>
@@ -260,14 +262,14 @@ a.btnlink{display:inline-flex;align-items:center;text-decoration:none;border-rad
     </div>
   </section>
 
-  <div class="foot"><b>iSell Gadget Protection</b> · by iSell Innovations · <b>Powered by M&amp;P Developers</b></div>
+  <div class="foot"><b>iSell Gadget Protection</b> · by iSell Innovations · <b class="mp"><img src="mp-logo.svg" alt="">Powered by M&amp;P Developers</b></div>
 </div>
 </div>
 
 <!-- Dot -->
 <button id="dotBtn" type="button" aria-label="Talk to Dot" hidden></button>
 <div id="dotPanel" hidden role="dialog" aria-label="Dot, the iSell assistant">
-  <div class="dothead"><div class="av" id="dotAv"></div><div><b>Dot</b><small>iSell assistant · Powered by M&amp;P Developers</small></div><button type="button" id="dotClose">Close</button></div>
+  <div class="dothead"><div class="av" id="dotAv"></div><div><b>Dot</b><small>iSell assistant</small><small class="mp"><img src="mp-logo.svg" alt="">Powered by M&amp;P Developers</small></div><button type="button" id="dotClose">Close</button></div>
   <div id="dotLog" aria-live="polite"></div>
   <form class="dotin" id="dotForm"><input id="dotIn" autocomplete="off" maxlength="1500" placeholder="Ask Dot… e.g. where is Mary's phone?"><button class="primary" type="submit">Send</button></form>
 </div>
