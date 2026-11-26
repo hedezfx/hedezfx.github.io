@@ -285,12 +285,14 @@ function render() {
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="fig"><span>Paid <b>${money(d.paid)}</b> of ${money(d.price)}</span><span>Owing <b>${money(owed)}</b></span></div>
       ${dueLine(d)}
+      ${locLine(d)}
       <div class="acts">
         ${main}
         ${d.status !== 'released' ? `<button class="ghost" data-a="pay" data-id="${d.id}">Record payment</button>` : ''}
         ${isPaid(d) && d.status !== 'released' ? `<button class="relb" data-a="release" data-id="${d.id}">Release</button>` : ''}
         ${d.status !== 'released' && !isPaid(d) ? `<button class="ghost" data-a="plan" data-id="${d.id}">Plan</button>` : ''}
         <button class="ghost" data-a="hist" data-id="${d.id}">Payments</button>
+        ${d.status !== 'released' ? `<button class="ghost" data-a="loc" data-id="${d.id}">Location</button>` : ''}
         ${d.status !== 'released' ? `<button class="ghost" data-a="usb" data-id="${d.id}">USB setup</button>` : ''}
         ${d.status !== 'released' ? `<button class="ghost" data-a="setup" data-id="${d.id}">QR setup</button>` : ''}
         ${d.status !== 'released' ? `<button class="ghost" data-a="code" data-id="${d.id}">Code</button>` : ''}
@@ -311,6 +313,142 @@ function dueLine(d) {
     return `<div class="due late">LATE ${days} day${days === 1 ? '' : 's'} · <b>${money(p.behind)}</b> behind (due ${fdate(p.lateSince)}) · ${auto}</div>`;
   }
   return `<div class="due">Next: <b>${money(p.nextDueAmount)}</b> due <b>${fdate(p.nextDueAt)}</b> · ${money(d.planAmount)} ${EVERY[d.planEveryDays] || ''} · ${auto}</div>`;
+}
+
+/* ---------- location ---------- */
+const LOC_APP_VERSION = 2; // first app version that reports location
+const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
+const LOC_PROBLEM = {
+  off: 'location is switched off on the phone',
+  no_permission: 'location is not allowed on the phone — redo the phone setup',
+  no_fix: 'no GPS signal at the last try',
+  not_owner: 'the app is not in full control (Device Owner) — redo the phone setup',
+};
+function since(t) {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 2) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
+}
+const ftime = (t) => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const accTxt = (a) => (a == null || a < 0 ? '' : ` · within ${Math.round(a)} m`);
+const gmaps = (lat, lng) => `https://www.google.com/maps?q=${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`;
+
+function locLine(d) {
+  if (d.status === 'released' || !d.lastSeen) return '';
+  if ((d.appVersion || 0) < LOC_APP_VERSION) return `<div class="loc warn">${PIN} Location: this phone has the old app. Update it to see location.</div>`;
+  const pend = d.locateRequestedAt ? ' · <span class="pend">locating…</span>' : '';
+  const prob = d.locProblem && LOC_PROBLEM[d.locProblem] ? ` · <span class="warn">${LOC_PROBLEM[d.locProblem]}</span>` : '';
+  if (!d.location) return `<div class="loc">${PIN} Location: waiting for the first report${pend}${prob}</div>`;
+  return `<div class="loc">${PIN} Location <b>${since(d.location.at)}</b>${accTxt(d.location.acc)}${pend}${prob}</div>`;
+}
+
+let loc = { id: null, map: null, layer: null, points: [], timer: null };
+function locDevice() { return devices.find((x) => x.id === loc.id); }
+
+async function openLocation(id) {
+  loc.id = id;
+  const d = locDevice(); if (!d) return;
+  $('locName').textContent = d.name;
+  $('locHist').innerHTML = '';
+  $('locModal').classList.add('open');
+  $('locModal').querySelector('.box').scrollTop = 0;
+  if (!loc.map && window.L) {
+    loc.map = L.map('locMap', { zoomControl: true, attributionControl: true }).setView([-15.4167, 28.2833], 12); // Lusaka
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, referrerPolicy: 'strict-origin', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+    }).addTo(loc.map);
+    loc.layer = L.layerGroup().addTo(loc.map);
+  } else if (!window.L) {
+    $('locMap').innerHTML = '<div class="mapfail">The map could not load. Check the internet connection and reload the page. The list below still works.</div>';
+  }
+  setTimeout(() => loc.map && loc.map.invalidateSize(), 60);
+  renderLocHeader();
+  await loadLocHistory();
+  if (d.locateRequestedAt) pollLocate();
+}
+
+function renderLocHeader() {
+  const d = locDevice(); if (!d) return;
+  const old = (d.appVersion || 0) < LOC_APP_VERSION;
+  const note = $('locNote');
+  if (!d.lastSeen) $('locSummary').textContent = 'This phone has not checked in yet. Finish the phone setup first.';
+  else if (old) $('locSummary').textContent = 'This phone still runs the old M&P Lock app, which does not send its location. Install the new app on it (see the setup guide).';
+  else if (d.location) $('locSummary').textContent = `Last seen here ${since(d.location.at)} (${ftime(d.location.at)})${accTxt(d.location.acc)}.`;
+  else $('locSummary').textContent = 'No location yet. The phone sends its first one within about 2 hours of setup, or press Locate now.';
+  const g = $('locGmaps');
+  g.hidden = !d.location;
+  if (d.location) g.href = gmaps(d.location.lat, d.location.lng);
+  $('locNow').disabled = !d.lastSeen || old;
+  if (d.locateRequestedAt) {
+    note.className = 'locnote pend';
+    note.textContent = `Locate now sent ${since(d.locateRequestedAt)}. Waiting for the phone — it answers at its next check-in, usually within 30 minutes if it has signal. You can close this window.`;
+  } else if (d.locProblem && LOC_PROBLEM[d.locProblem]) {
+    note.className = 'locnote warn';
+    note.textContent = 'Problem at the last try: ' + LOC_PROBLEM[d.locProblem] + '.';
+  } else { note.className = 'locnote'; note.textContent = ''; }
+}
+
+async function loadLocHistory() {
+  const d = locDevice(); if (!d) return;
+  try {
+    const j = await api('GET', `/api/devices/${d.id}/locations?days=${encodeURIComponent($('locDays').value)}`);
+    loc.points = j.points || [];
+  } catch (e) { loc.points = []; $('locNote').className = 'locnote warn'; $('locNote').textContent = 'Could not load the history: ' + e.message; }
+  drawLocations();
+}
+
+function drawLocations() {
+  const pts = loc.points; // newest first
+  const hist = $('locHist');
+  hist.innerHTML = pts.length ? '' : '<div>No positions in this period.</div>';
+  pts.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `<span>${esc(ftime(p.fixAt))}${p.live ? '<span class="tag">Locate now</span>' : ''}${i === 0 ? '<span class="tag">latest</span>' : ''}</span>
+      <span>${p.acc != null ? 'within ' + Math.round(p.acc) + ' m' : ''}${p.battery != null ? ' · battery ' + p.battery + '%' : ''}</span>`;
+    b.onclick = () => { if (loc.map) loc.map.setView([p.lat, p.lng], 17); };
+    hist.appendChild(b);
+  });
+  if (!loc.map) return;
+  loc.layer.clearLayers();
+  if (!pts.length) return;
+  const line = pts.slice().reverse().map((p) => [p.lat, p.lng]);
+  if (line.length > 1) L.polyline(line, { color: '#1C54F2', weight: 3, opacity: 0.55 }).addTo(loc.layer);
+  pts.slice(1).forEach((p) => L.circleMarker([p.lat, p.lng], { radius: 5, color: '#fff', weight: 1.5, fillColor: '#4A5B80', fillOpacity: 0.9 })
+    .bindTooltip(ftime(p.fixAt)).addTo(loc.layer));
+  const last = pts[0];
+  if (last.acc) L.circle([last.lat, last.lng], { radius: last.acc, color: '#1C54F2', weight: 1, fillOpacity: 0.12 }).addTo(loc.layer);
+  L.circleMarker([last.lat, last.lng], { radius: 9, color: '#fff', weight: 3, fillColor: '#EC5338', fillOpacity: 1 })
+    .bindTooltip('Latest: ' + ftime(last.fixAt)).addTo(loc.layer);
+  if (pts.length === 1) loc.map.setView([last.lat, last.lng], 16);
+  else loc.map.fitBounds(L.latLngBounds(line).pad(0.2), { maxZoom: 17 });
+}
+
+$('locDays').onchange = () => loadLocHistory();
+$('locNow').onclick = () => once($('locNow'), async () => {
+  const d = locDevice(); if (!d) return;
+  try {
+    await api('POST', `/api/devices/${d.id}/locate`, {});
+    await refresh();
+    renderLocHeader();
+    pollLocate();
+  } catch (e) { $('locNote').className = 'locnote warn'; $('locNote').textContent = e.message; }
+});
+// While a Locate now is waiting and the window is open, check every 30 s (stops after 40 min).
+function pollLocate() {
+  clearTimeout(loc.timer);
+  const started = Date.now();
+  const tick = async () => {
+    if (!$('locModal').classList.contains('open') || Date.now() - started > 40 * 60000) return;
+    await refresh();
+    const d = locDevice();
+    renderLocHeader();
+    if (d && !d.locateRequestedAt) { await loadLocHistory(); return; }
+    loc.timer = setTimeout(tick, 30000);
+  };
+  loc.timer = setTimeout(tick, 30000);
 }
 
 $('list').addEventListener('click', (e) => {
@@ -351,7 +489,7 @@ async function deviceAction(b, d) {
         break;
       }
       case 'release': {
-        const ok = await ask({ title: 'Release this phone?', text: `${d.name} has paid in full. Releasing keeps the phone unlocked for good and turns the USB block off at its next check-in.`, confirmOnly: true, okLabel: 'Release' });
+        const ok = await ask({ title: 'Release this phone?', text: `${d.name} has paid in full. Releasing keeps the phone unlocked for good and turns the USB block off at its next check-in. Location tracking stops and this phone's location history is deleted.`, confirmOnly: true, okLabel: 'Release' });
         if (!ok) return;
         await api('POST', `/api/devices/${d.id}/release`, {});
         break;
@@ -361,6 +499,7 @@ async function deviceAction(b, d) {
         await ask({ title: `Payments — ${d.name}`, text: `Paid ${money(d.paid)} of ${money(d.price)}.`, html: `<div class="hist">${rows}</div>`, okLabel: 'Close' });
         return;
       }
+      case 'loc': openLocation(d.id); return;
       case 'setup': openSetupQR(d.id, d.name); return;
       case 'usb': openUsbSetup(d.id, d.name); return;
       case 'code': {
